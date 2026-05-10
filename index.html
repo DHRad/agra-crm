@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#1a3d1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AGRA CRM">
+<title>AGRA CRM</title>
+<style>
+:root{--g1:#1a3d1a;--g2:#2d6a2d;--g4:#e8f5e9;--gold:#c8a83a;--bg:#f4f1ea;--surf:#fff;--tx:#1a1a14;--tx2:#5a5a4a;--tx3:#9a9a8a;--red:#c0392b;--blue:#1565c0;--orange:#e65100;--r:12px;--sh:0 2px 12px rgba(0,0,0,.09)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+.header{background:var(--g1);color:#fff;padding:12px 16px;padding-top:max(12px,env(safe-area-inset-top));display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.header-logo{font-size:20px;font-weight:800}.header-logo span{color:var(--gold)}
+.header-stats{display:flex;gap:16px;font-size:11px;color:#aaa;text-align:center}
+.header-stats b{color:#fff;font-size:16px;display:block;line-height:1}
+.screen{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:none}
+.screen.active{display:block}
+.bottom-nav{background:var(--g1);display:flex;border-top:1px solid #2d4a2d;padding-bottom:env(safe-area-inset-bottom);flex-shrink:0}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0 8px;cursor:pointer;color:#777;border:none;background:none;gap:3px}
+.nav-btn.active{color:var(--gold)}
+.nav-btn-ico{font-size:22px;line-height:1}.nav-btn-lbl{font-size:10px;font-weight:600}
+.card{background:var(--surf);border-radius:var(--r);box-shadow:var(--sh);margin:10px;padding:14px}
+.card-title{font-size:14px;font-weight:700;color:var(--g1);margin-bottom:12px}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:10px}
+.stat-card{background:var(--surf);border-radius:10px;padding:10px 8px;text-align:center;box-shadow:var(--sh);border-top:3px solid var(--g2)}
+.stat-val{font-size:22px;font-weight:800}.stat-lbl{font-size:10px;color:var(--tx3);margin-top:2px;text-transform:uppercase}
+.podgrupy-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.podgrupa-card{background:var(--g4);border-radius:10px;padding:10px;text-align:center;border:1px solid #a5d6a7;cursor:pointer}
+.podgrupa-ico{font-size:22px}.podgrupa-cnt{font-size:18px;font-weight:800;color:var(--g1)}
+.podgrupa-lbl{font-size:11px;color:var(--tx2);font-weight:600}.podgrupa-email{font-size:10px;color:var(--tx3)}
+.followup-item{background:var(--surf);border-radius:10px;padding:12px;margin-bottom:8px;border-left:4px solid var(--red);box-shadow:var(--sh);cursor:pointer}
+.followup-nazwa{font-weight:700;font-size:14px}.followup-meta{font-size:12px;color:var(--tx3);margin-top:3px}
+.followup-akcja{font-size:12px;color:var(--g2);margin-top:5px}
+.akcje-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.akcja-btn{border-radius:12px;padding:16px 8px;text-align:center;cursor:pointer;border:none;box-shadow:var(--sh)}
+.akcja-ico{font-size:28px;display:block;margin-bottom:4px}.akcja-lbl{font-size:12px;font-weight:700;color:#fff}
+.search-bar{background:var(--g1);padding:10px 12px}
+.search-input{width:100%;background:#fff;border:none;border-radius:10px;padding:10px 14px;font-size:15px;color:var(--tx);outline:none}
+.chips-scroll{background:var(--g1);overflow-x:auto;display:flex;gap:6px;padding:8px 12px;scrollbar-width:none}
+.chips-scroll::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;padding:5px 12px;border-radius:20px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.12);color:#ddd;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0}
+.chip.active{background:var(--gold);border-color:var(--gold);color:#1a1a14}
+.chips-label{color:#888;font-size:10px;padding:5px 4px;white-space:nowrap;align-self:center;flex-shrink:0;text-transform:uppercase}
+.klient-card{background:var(--surf);border-radius:12px;padding:12px;margin:6px 10px;box-shadow:var(--sh);cursor:pointer}
+.klient-header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.klient-ico{font-size:22px}.klient-info{flex:1;min-width:0}
+.klient-nazwa{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.klient-meta{font-size:11px;color:var(--tx3);margin-top:2px}
+.status-badge{padding:3px 8px;border-radius:10px;font-size:11px;font-weight:700;white-space:nowrap}
+.kontakt-btns{display:flex;gap:6px;flex-wrap:wrap}
+.kontakt-btn{padding:5px 10px;border-radius:6px;font-size:12px;font-weight:600;border:none;cursor:pointer;background:var(--g4);color:var(--g2)}
+.kontakt-btn.red{background:#fce4e4;color:var(--red)}
+.produkty-list{font-size:11px;color:var(--tx3);margin-top:5px}
+.results-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 12px}
+.results-txt{font-size:12px;color:var(--tx3)}
+.add-btn{background:var(--g2);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer}
+.detail-header{background:var(--g1);padding:16px;padding-top:8px}
+.detail-back{color:#aaa;font-size:13px;cursor:pointer;margin-bottom:8px}
+.detail-ico{font-size:32px}.detail-nazwa{font-size:18px;font-weight:800;color:#fff;margin-top:4px}
+.detail-meta{font-size:12px;color:#aaa;margin-top:2px}
+.detail-akcje{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.detail-btn{padding:8px 14px;border-radius:8px;border:none;background:rgba(255,255,255,.15);color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+.detail-btn.gold{background:var(--gold);color:#1a1a14}
+.info-row{display:flex;padding:8px 0;border-bottom:1px solid #f5f5f5}
+.info-lbl{width:110px;font-size:12px;color:var(--tx3);font-weight:600;flex-shrink:0}
+.info-val{font-size:13px;color:var(--tx);flex:1}
+.sekcja-tytul{font-size:14px;font-weight:800;color:var(--g1);margin-bottom:10px}
+.produkty-badges{display:flex;gap:6px;flex-wrap:wrap}
+.produkt-badge{background:var(--g4);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--g2);font-weight:600}
+.mic-btn{width:100%;padding:16px;border-radius:12px;border:none;background:var(--g1);color:#fff;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px}
+.mic-btn.recording{background:var(--red)}
+.notatka-pole{width:100%;border:1px solid #ddd;border-radius:10px;padding:10px;font-size:14px;color:var(--tx);min-height:80px;resize:vertical;font-family:inherit;background:#fafafa}
+.zapisz-btn{width:100%;padding:14px;border-radius:10px;border:none;background:var(--g2);color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
+.notatka-wpis{border-left:3px solid var(--g2);padding-left:10px;margin-bottom:10px}
+.notatka-txt{font-size:13px;color:var(--tx)}.notatka-meta{font-size:11px;color:var(--tx3);margin-top:3px}
+.voice-transcript{background:#f0f7f0;border-radius:8px;padding:10px;font-size:13px;color:var(--tx);margin-bottom:8px;display:none}
+.recording-indicator{text-align:center;color:var(--red);font-size:13px;font-weight:600;margin-bottom:8px;display:none}
+.trasa-kryteria{padding:10px}
+.trasa-label{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;margin-bottom:6px;margin-top:10px}
+.switch-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0}
+.switch-lbl{font-size:14px;color:var(--tx)}
+.trasa-footer{position:sticky;bottom:0;background:#fff;padding:12px;border-top:1px solid #eee;box-shadow:0 -4px 12px rgba(0,0,0,.08)}
+.trasa-btn{width:100%;padding:16px;border-radius:14px;border:none;background:var(--g1);color:#fff;font-size:16px;font-weight:800;cursor:pointer}
+.klient-item{display:flex;justify-content:space-between;align-items:center;background:#fff;margin:4px 10px;border-radius:10px;padding:10px;box-shadow:0 1px 4px rgba(0,0,0,.06);cursor:pointer}
+.klient-item.selected{background:#e8f5e9;border:1px solid var(--g2)}
+.klient-item-left{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.dzwon-btn{font-size:22px;padding:4px;border:none;background:none;cursor:pointer}
+.wynik-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#fff;margin:0 10px 4px;border-radius:8px}
+.form-screen{padding:10px;padding-bottom:80px}
+.form-sekcja{background:#fff;border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:var(--sh)}
+.form-sekcja-tytul{font-size:14px;font-weight:800;color:var(--g1);margin-bottom:12px}
+.form-pole{margin-bottom:10px}
+.form-lbl{font-size:11px;font-weight:700;color:var(--tx3);text-transform:uppercase;margin-bottom:4px;display:block}
+.form-input{width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;color:var(--tx);background:#fafafa;font-family:inherit;outline:none}
+.form-input:focus{border-color:var(--g2);background:#fff}
+.form-chips{display:flex;flex-wrap:wrap;gap:6px}
+.form-chip{padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;font-size:12px;color:var(--tx);cursor:pointer}
+.form-chip.active{background:var(--g2);border-color:var(--g2);color:#fff;font-weight:600}
+.form-save-btn{width:100%;padding:16px;border-radius:14px;border:none;background:var(--g1);color:#fff;font-size:16px;font-weight:800;cursor:pointer;margin:10px 0}
+.empty{text-align:center;padding:60px 20px;color:var(--tx3)}
+.empty-ico{font-size:50px;margin-bottom:12px}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+.raport-btn{width:100%;padding:14px;border-radius:10px;border:none;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">AGRA <span>CRM</span> <span id="fbSync" style="font-size:10px;background:rgba(200,168,58,.2);color:var(--gold);padding:2px 7px;border-radius:10px;margin-left:6px">⏳</span></div>
+  <div class="header-stats">
+    <div><b id="hKlientow">0</b>Klientów</div>
+    <div><b id="hFollowup">0</b>Follow-up</div>
+    <div><b id="hAktywnych">0</b>Aktywnych</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="screen active" id="screenDashboard">
+  <div style="padding:10px;padding-bottom:0">
+    <div class="stats-row">
+      <div class="stat-card" style="border-top-color:var(--g2)"><div class="stat-val" id="stKlientow">0</div><div class="stat-lbl">Klientów</div></div>
+      <div class="stat-card" style="border-top-color:var(--gold)"><div class="stat-val" id="stAktywnych">0</div><div class="stat-lbl">Aktywni</div></div>
+      <div class="stat-card" style="border-top-color:var(--blue)"><div class="stat-val" id="stOferty">0</div><div class="stat-lbl">Oferty</div></div>
+      <div class="stat-card" style="border-top-color:var(--red)"><div class="stat-val" id="stFollowup">0</div><div class="stat-lbl">Dziś</div></div>
+    </div>
+  </div>
+  <div id="followupSekcja" style="display:none" class="card">
+    <div class="card-title">⏰ Follow-up na dziś</div>
+    <div id="followupList"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">📊 Podgrupy klientów</div>
+    <div class="podgrupy-grid" id="podgrupy"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">⚡ Szybkie akcje</div>
+    <div class="akcje-row">
+      <button class="akcja-btn" style="background:var(--g2)" onclick="goScreen('klienci')"><span class="akcja-ico">👥</span><span class="akcja-lbl">Klienci</span></button>
+      <button class="akcja-btn" style="background:var(--gold)" onclick="goScreen('trasa')"><span class="akcja-ico">🗺️</span><span class="akcja-lbl">Trasa</span></button>
+      <button class="akcja-btn" style="background:var(--blue)" onclick="nowyKlient()"><span class="akcja-ico">➕</span><span class="akcja-lbl">Nowy</span></button>
+    </div>
+  </div>
+  <div style="height:10px"></div>
+</div>
+
+<!-- KLIENCI -->
+<div class="screen" id="screenKlienci">
+  <div class="search-bar"><input class="search-input" type="search" id="searchInput" placeholder="🔍  Szukaj..." oninput="renderKlienci()"></div>
+  <div class="chips-scroll" id="filterChips">
+    <div class="chip active" onclick="setFilter('',this)">👥 Wszyscy</div>
+    <span class="chips-label">Status:</span>
+    <div class="chip" onclick="setFilter('nowy',this)">🟢 Nowy</div>
+    <div class="chip" onclick="setFilter('kontakt',this)">🟠 Kontakt</div>
+    <div class="chip" onclick="setFilter('oferta',this)">🔵 Oferta</div>
+    <div class="chip" onclick="setFilter('klient',this)">🌿 Klient</div>
+    <span class="chips-label">Podgrupa:</span>
+    <div class="chip" onclick="setFilter('winnica',this)">🍷 Winnica</div>
+    <div class="chip" onclick="setFilter('sad',this)">🍎 Sad</div>
+    <div class="chip" onclick="setFilter('warzywnicy',this)">🥕 Warzywnicy</div>
+    <div class="chip" onclick="setFilter('jagodowe',this)">🫐 Jagodowe</div>
+    <div class="chip" onclick="setFilter('chmielarze',this)">🌿 Chmielarze</div>
+    <div class="chip" onclick="setFilter('zbozowi',this)">🌾 Zbożowi</div>
+    <div class="chip" onclick="setFilter('rzepak',this)">🌻 Rzepak</div>
+    <div class="chip" onclick="setFilter('hurtownia',this)">🏪 Hurtownia</div>
+    <div class="chip" onclick="setFilter('rolnik',this)">👨‍🌾 Rolnik</div>
+    <div class="chip" onclick="setFilter('followup',this)">⏰ Dziś</div>
+  </div>
+  <div class="results-bar">
+    <span class="results-txt" id="resultsTxt">0 klientów</span>
+    <button class="add-btn" onclick="nowyKlient()">+ Nowy</button>
+  </div>
+  <div id="klienciList"></div>
+  <div style="height:10px"></div>
+</div>
+
+<!-- DETAIL -->
+<div class="screen" id="screenDetail">
+  <div class="detail-header">
+    <div class="detail-back" onclick="goBack()">← Powrót</div>
+    <div id="detailIco" class="detail-ico"></div>
+    <div id="detailNazwa" class="detail-nazwa"></div>
+    <div id="detailMeta" class="detail-meta"></div>
+    <div class="detail-akcje" id="detailAkcje"></div>
+  </div>
+  <div id="detailBody" style="padding-bottom:20px"></div>
+</div>
+
+<!-- FORM -->
+<div class="screen" id="screenForm">
+  <div style="background:var(--g1);padding:12px 16px;padding-top:8px">
+    <div class="detail-back" onclick="goBack()">← Powrót</div>
+    <div style="color:#fff;font-size:17px;font-weight:800" id="formTytul">Nowy klient</div>
+  </div>
+  <div class="form-screen" id="formBody"></div>
+</div>
+
+<!-- TRASA -->
+<div class="screen" id="screenTrasa">
+  <div style="position:relative;height:100%;display:flex;flex-direction:column">
+    <div style="flex:1;overflow-y:auto">
+      <div class="trasa-kryteria">
+        <div class="trasa-label">Podgrupa</div>
+        <div class="chips-scroll" id="trasaChipsPodgrupa" style="background:transparent;padding:0">
+          <div class="chip active" style="border-color:#ddd;background:#fff;color:var(--tx)" onclick="setTrasaFilter('typ','',this)">Wszyscy</div>
+        </div>
+        <div class="trasa-label">Województwo</div>
+        <div class="chips-scroll" id="trasaChipsWoj" style="background:transparent;padding:0">
+          <div class="chip active" style="border-color:#ddd;background:#fff;color:var(--tx)" onclick="setTrasaFilter('woj','',this)">Wszystkie</div>
+        </div>
+        <div class="trasa-label">Status</div>
+        <div class="chips-scroll" style="background:transparent;padding:0">
+          <div class="chip active" style="border-color:#ddd;background:#fff;color:var(--tx)" onclick="setTrasaFilter('status','',this)">Wszystkie</div>
+          <div class="chip" style="border-color:#ddd;background:#fff;color:var(--tx)" onclick="setTrasaFilter('status','nowy',this)">🟢 Nowy</div>
+          <div class="chip" style="border-color:#ddd;background:#fff;color:var(--tx)" onclick="setTrasaFilter('status','kontakt',this)">🟠 Kontakt</div>
+          <div class="chip" style="border-color:#ddd;background:#fff;color:var(--tx)" onclick="setTrasaFilter('status','klient',this)">🌿 Klient</div>
+        </div>
+        <div class="card" style="margin:10px 0">
+          <div class="switch-row"><span class="switch-lbl">Tylko z emailem</span><input type="checkbox" id="swEmail" onchange="renderTrasa()" style="width:40px;height:22px;cursor:pointer"></div>
+          <div class="switch-row"><span class="switch-lbl">Tylko z telefonem</span><input type="checkbox" id="swTel" onchange="renderTrasa()" style="width:40px;height:22px;cursor:pointer"></div>
+        </div>
+        <div class="wynik-row">
+          <span id="trasaWynikTxt" style="font-size:13px;font-weight:600">0 klientów</span>
+          <button onclick="zaznaczWszystkich()" style="background:var(--g4);border:none;border-radius:8px;padding:6px 12px;font-size:12px;color:var(--g2);font-weight:700;cursor:pointer">☑ Zaznacz</button>
+        </div>
+      </div>
+      <div id="trasaList"></div>
+      <div style="height:80px"></div>
+    </div>
+    <div class="trasa-footer">
+      <button class="trasa-btn" onclick="otworzTrase()" id="trasaBtn">🗺️ Otwórz w Google Maps</button>
+    </div>
+  </div>
+</div>
+
+<!-- RAPORTY -->
+<div class="screen" id="screenRaporty">
+  <div style="padding:14px;padding-bottom:80px">
+    <div class="card">
+      <div class="card-title">📊 Raport tygodniowy</div>
+      <p style="font-size:13px;color:var(--tx2);margin-bottom:12px">Podsumowanie minionego tygodnia — wizyty, notatki, pipeline. Gotowy dla managera.</p>
+      <label class="form-lbl">Od:</label>
+      <input type="date" id="raportOd" class="form-input" style="margin-bottom:8px">
+      <label class="form-lbl">Do:</label>
+      <input type="date" id="raportDo" class="form-input" style="margin-bottom:8px">
+      <button class="raport-btn" style="background:var(--g1);color:#fff" onclick="generujRaport()">📊 Generuj raport tygodniowy</button>
+    </div>
+    <div class="card">
+      <div class="card-title">📅 Plan następnego tygodnia</div>
+      <p style="font-size:13px;color:var(--tx2);margin-bottom:12px">Follow-upy + klienci z wysokim potencjałem na przyszły tydzień.</p>
+      <button class="raport-btn" style="background:var(--gold);color:#1a1a14" onclick="generujPlan()">📅 Generuj plan tygodnia</button>
+    </div>
+    <div class="card">
+      <div class="card-title">📤 Eksport bazy</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="eksportujExcel()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--g2);color:#fff;font-size:14px;font-weight:700;cursor:pointer">📊 Excel</button>
+        <button onclick="eksportujCSV()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--g2);background:#fff;color:var(--g2);font-size:14px;font-weight:700;cursor:pointer">📄 CSV</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-nav">
+  <button class="nav-btn active" id="navDashboard" onclick="goScreen('dashboard')"><span class="nav-btn-ico">📊</span><span class="nav-btn-lbl">Dashboard</span></button>
+  <button class="nav-btn" id="navKlienci" onclick="goScreen('klienci')"><span class="nav-btn-ico">👥</span><span class="nav-btn-lbl">Klienci</span></button>
+  <button class="nav-btn" id="navTrasa" onclick="goScreen('trasa')"><span class="nav-btn-ico">🗺️</span><span class="nav-btn-lbl">Trasa</span></button>
+  <button class="nav-btn" id="navRaporty" onclick="goScreen('raporty')"><span class="nav-btn-ico">📋</span><span class="nav-btn-lbl">Raporty</span></button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let DB=JSON.parse(localStorage.getItem('agra_crm')||'[]');
+let currentFilter='',currentScreen='dashboard',prevScreen='dashboard',editingId=null;
+let trasaFilter={typ:'',woj:'',status:''},wybraniIds=[];
+let recognition=null,voiceActive=false,voiceText='';
+
+const PODGRUPY=[{key:'winnica',label:'Winnica',ico:'🍷'},{key:'sad',label:'Sad',ico:'🍎'},{key:'warzywnicy',label:'Warzywnicy',ico:'🥕'},{key:'jagodowe',label:'Jagodowe',ico:'🫐'},{key:'chmielarze',label:'Chmielarze',ico:'🌿'},{key:'zbozowi',label:'Zbożowi',ico:'🌾'},{key:'rzepak',label:'Rzepak',ico:'🌻'},{key:'hurtownia',label:'Hurtownia',ico:'🏪'},{key:'sklep',label:'Sklep',ico:'🛒'},{key:'rolnik',label:'Rolnik',ico:'👨‍🌾'},{key:'inny',label:'Inny',ico:'👤'}];
+const STATUSY={nowy:{label:'Nowy',kolor:'#2e7d32',bg:'#e8f5e9'},kontakt:{label:'Kontakt',kolor:'#e65100',bg:'#fff3e0'},oferta:{label:'Oferta',kolor:'#1565c0',bg:'#e3f2fd'},klient:{label:'Klient',kolor:'#fff',bg:'#1a3d1a'},nieaktywny:{label:'Nieaktywny',kolor:'#757575',bg:'#f5f5f5'}};
+const PRODUKTY=['StabilureN','RETAFOS Prim','CHEVRI Cu-Combi','StimGUARD pH'];
+const WOJEWODZTWA=['dolnośląskie','kujawsko-pomorskie','lubelskie','lubuskie','łódzkie','małopolskie','mazowieckie','opolskie','podkarpackie','podlaskie','pomorskie','śląskie','świętokrzyskie','warmińsko-mazurskie','wielkopolskie','zachodniopomorskie'];
+
+function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6)}
+function todayStr(){return new Date().toISOString().slice(0,10)}
+function esc(s){return(s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function podgrupaIco(t){return(PODGRUPY.find(p=>p.key===t)||{ico:'👤'}).ico}
+function statusInfo(s){return STATUSY[s]||STATUSY.nowy}
+function save(){localStorage.setItem('agra_crm',JSON.stringify(DB));updateStats()}
+function saveKlient(k){save();if(window.saveToFirebase)window.saveToFirebase(k)}
+function deleteKlient(id){DB=DB.filter(x=>x.id!==id);save();if(window.deleteFromFirebase)window.deleteFromFirebase(id)}
+function toast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur)}
+
+function goScreen(name){
+  prevScreen=currentScreen;currentScreen=name;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen'+name[0].toUpperCase()+name.slice(1)).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const nb=document.getElementById('nav'+name[0].toUpperCase()+name.slice(1));
+  if(nb)nb.classList.add('active');
+  if(name==='dashboard')renderDashboard();
+  if(name==='klienci')renderKlienci();
+  if(name==='trasa')renderTrasa();
+  if(name==='raporty')initRaportDaty();
+}
+function goBack(){if(currentScreen==='detail'||currentScreen==='form')goScreen(prevScreen==='detail'?'klienci':prevScreen)}
+
+function updateStats(){
+  const today=todayStr();
+  const fu=DB.filter(k=>k.followup===today).length;
+  const akt=DB.filter(k=>k.status==='klient').length;
+  const of=DB.filter(k=>k.status==='oferta').length;
+  ['hKlientow','stKlientow'].forEach(id=>document.getElementById(id).textContent=DB.length);
+  document.getElementById('hFollowup').textContent=fu;
+  document.getElementById('hAktywnych').textContent=akt;
+  document.getElementById('stAktywnych').textContent=akt;
+  document.getElementById('stOferty').textContent=of;
+  document.getElementById('stFollowup').textContent=fu;
+}
+
+function renderDashboard(){
+  updateStats();
+  const today=todayStr();
+  const fu=DB.filter(k=>k.followup===today);
+  const fuSek=document.getElementById('followupSekcja');
+  if(fu.length){
+    fuSek.style.display='block';
+    document.getElementById('followupList').innerHTML=fu.map(k=>`<div class="followup-item" onclick="openKlient('${k.id}')"><div class="followup-nazwa">${podgrupaIco(k.typ)} ${esc(k.nazwa)}</div><div class="followup-meta">${esc(k.telefon||'')}${k.telefon&&k.miasto?' · ':''}${esc(k.miasto||'')}</div>${k.dzialanie?`<div class="followup-akcja">🎯 ${esc(k.dzialanie)}</div>`:''}</div>`).join('');
+  }else fuSek.style.display='none';
+  document.getElementById('podgrupy').innerHTML=PODGRUPY.map(p=>{
+    const cnt=DB.filter(k=>k.typ===p.key).length;
+    if(!cnt)return'';
+    const em=DB.filter(k=>k.typ===p.key&&k.email).length;
+    return`<div class="podgrupa-card" onclick="filterPodgrupa('${p.key}')"><div class="podgrupa-ico">${p.ico}</div><div class="podgrupa-cnt">${cnt}</div><div class="podgrupa-lbl">${p.label}</div><div class="podgrupa-email">${em} 📧</div></div>`;
+  }).join('');
+}
+
+function filterPodgrupa(typ){currentFilter=typ;goScreen('klienci');document.querySelectorAll('#filterChips .chip').forEach(c=>{c.classList.remove('active');if(c.getAttribute('onclick')&&c.getAttribute('onclick').includes("'"+typ+"'"))c.classList.add('active')})}
+
+function getFiltered(){
+  const q=(document.getElementById('searchInput').value||'').toLowerCase();
+  const today=todayStr();
+  return DB.filter(k=>{
+    if(q&&!`${k.nazwa||''} ${k.telefon||''} ${k.email||''} ${k.miasto||''} ${k.kontakt||''}`.toLowerCase().includes(q))return false;
+    if(currentFilter==='followup')return k.followup===today;
+    if(['nowy','kontakt','oferta','klient','nieaktywny'].includes(currentFilter))return k.status===currentFilter;
+    if(currentFilter)return k.typ===currentFilter;
+    return true;
+  });
+}
+function setFilter(val,el){currentFilter=val;document.querySelectorAll('#filterChips .chip').forEach(c=>c.classList.remove('active'));if(el)el.classList.add('active');renderKlienci()}
+function renderKlienci(){
+  const list=getFiltered();
+  document.getElementById('resultsTxt').textContent=`${list.length} klientów`;
+  const div=document.getElementById('klienciList');
+  if(!list.length){div.innerHTML='<div class="empty"><div class="empty-ico">🔍</div><p>Brak klientów</p></div>';return}
+  div.innerHTML=list.map(k=>{
+    const st=statusInfo(k.status);
+    return`<div class="klient-card" onclick="openKlient('${k.id}')"><div class="klient-header"><span class="klient-ico">${podgrupaIco(k.typ)}</span><div class="klient-info"><div class="klient-nazwa">${esc(k.nazwa)}</div><div class="klient-meta">${esc(k.kontakt||'')}${k.kontakt&&k.miasto?' · ':''}${esc(k.miasto||'')}</div></div><span class="status-badge" style="background:${st.bg};color:${st.kolor}">${st.label}</span></div><div class="kontakt-btns">${k.telefon?`<button class="kontakt-btn" onclick="event.stopPropagation();window.location='tel:${k.telefon}'">📞 ${esc(k.telefon)}</button>`:''} ${k.email?`<button class="kontakt-btn" onclick="event.stopPropagation();window.location='mailto:${k.email}'">✉️ Email</button>`:''} ${k.followup?`<button class="kontakt-btn red">⏰ ${k.followup}</button>`:''}</div>${(k.produkty||[]).length?`<div class="produkty-list">🌿 ${(k.produkty||[]).join(' · ')}</div>`:''}</div>`;
+  }).join('');
+}
+
+function openKlient(id){
+  prevScreen=currentScreen;
+  const k=DB.find(x=>x.id===id);if(!k)return;
+  editingId=id;
+  const st=statusInfo(k.status);
+  const pg=PODGRUPY.find(p=>p.key===k.typ)||{ico:'👤'};
+  document.getElementById('detailIco').textContent=pg.ico;
+  document.getElementById('detailNazwa').textContent=k.nazwa;
+  document.getElementById('detailMeta').textContent=`${k.miasto||''}${k.miasto&&k.woj?' · ':''}${k.woj||''}`;
+  document.getElementById('detailAkcje').innerHTML=`${k.telefon?`<button class="detail-btn" onclick="window.location='tel:${k.telefon}';oznaczKontakt('${id}')">📞 Zadzwoń</button>`:''} ${k.email?`<button class="detail-btn" onclick="window.location='mailto:${k.email}'">✉️ Email</button>`:''} ${k.miasto?`<button class="detail-btn" onclick="nawiguj('${id}')">🗺️ Nawiguj</button>`:''} <button class="detail-btn gold" onclick="edytujKlient('${id}')">✏️ Edytuj</button>`;
+  let html=`<div class="card"><div class="sekcja-tytul">📋 Dane kontaktowe</div>${k.kontakt?`<div class="info-row"><span class="info-lbl">Osoba</span><span class="info-val">${esc(k.kontakt)}</span></div>`:''} ${k.telefon?`<div class="info-row"><span class="info-lbl">Telefon</span><span class="info-val"><a href="tel:${k.telefon}" style="color:var(--g2);font-weight:600">${esc(k.telefon)}</a></span></div>`:''} ${k.email?`<div class="info-row"><span class="info-lbl">Email</span><span class="info-val"><a href="mailto:${k.email}" style="color:var(--g2)">${esc(k.email)}</a></span></div>`:''} ${k.adres?`<div class="info-row"><span class="info-lbl">Adres</span><span class="info-val">${esc(k.adres)}</span></div>`:''}<div class="info-row"><span class="info-lbl">Status</span><span class="info-val"><span class="status-badge" style="background:${st.bg};color:${st.kolor}">${st.label}</span></span></div></div>`;
+  if((k.produkty||[]).length)html+=`<div class="card"><div class="sekcja-tytul">🌿 Produkty AGRA</div><div class="produkty-badges">${(k.produkty||[]).map(p=>`<span class="produkt-badge">${esc(p)}</span>`).join('')}</div></div>`;
+  html+=`<div class="card"><div class="sekcja-tytul">📅 CRM</div>${k.ostatni?`<div class="info-row"><span class="info-lbl">Ostatni</span><span class="info-val">${k.ostatni}</span></div>`:''} ${k.followup?`<div class="info-row"><span class="info-lbl">Follow-up</span><span class="info-val" style="color:var(--red);font-weight:600">${k.followup}</span></div>`:''} ${k.dzialanie?`<div class="info-row"><span class="info-lbl">Działanie</span><span class="info-val">${esc(k.dzialanie)}</span></div>`:''}</div>`;
+  html+=`<div class="card"><div class="sekcja-tytul">🎤 Notatka po wizycie</div><button class="mic-btn" id="micBtn" onclick="toggleVoice()"><span>🎤</span><span id="micTxt">Nagraj notatkę</span></button><div class="recording-indicator" id="recIndicator">⏺️ Nagrywam...</div><div class="voice-transcript" id="voiceTranscript"></div><textarea class="notatka-pole" id="notatkaPole" placeholder="Lub wpisz ręcznie..."></textarea><button class="zapisz-btn" onclick="zapiszNotatke('${id}')">💾 Zapisz notatkę</button></div>`;
+  if((k.notatki||[]).length)html+=`<div class="card"><div class="sekcja-tytul">💬 Historia</div>${(k.notatki||[]).map(n=>`<div class="notatka-wpis"><div class="notatka-txt">${esc(n.txt)}</div><div class="notatka-meta">${n.autor||'Darek'} · ${n.data}</div></div>`).join('')}</div>`;
+  html+='<div style="height:20px"></div>';
+  document.getElementById('detailBody').innerHTML=html;
+  goScreen('detail');
+}
+
+function oznaczKontakt(id){const k=DB.find(x=>x.id===id);if(k){k.ostatni=todayStr();saveKlient(k);toast('📞 Odnotowano')}}
+function nawiguj(id){const k=DB.find(x=>x.id===id);if(k)window.open(`https://www.google.com/maps/search/${encodeURIComponent((k.adres||'')+' '+(k.miasto||'')+' Polska')}`)}
+function nowyKlient(){editingId=null;renderForm(null)}
+function edytujKlient(id){editingId=id;renderForm(DB.find(k=>k.id===id))}
+
+function renderForm(k){
+  document.getElementById('formTytul').textContent=k?'Edytuj klienta':'Nowy klient';
+  const v=(f,d='')=>k?esc(k[f]||d):d;
+  const produkty=k?.produkty||[],woj=k?.woj||'',typ=k?.typ||'winnica',status=k?.status||'nowy',potencjal=k?.potencjal||'sredni';
+  document.getElementById('formBody').innerHTML=`
+    <div class="form-sekcja"><div class="form-sekcja-tytul">📋 Dane</div>
+    <div class="form-pole"><label class="form-lbl">Nazwa *</label><input class="form-input" id="fNazwa" value="${v('nazwa')}" placeholder="Winnica..."></div>
+    <div class="form-pole"><label class="form-lbl">Osoba kontaktowa</label><input class="form-input" id="fKontakt" value="${v('kontakt')}"></div>
+    <div class="form-pole"><label class="form-lbl">Telefon</label><input class="form-input" id="fTelefon" type="tel" value="${v('telefon')}"></div>
+    <div class="form-pole"><label class="form-lbl">Email</label><input class="form-input" id="fEmail" type="email" value="${v('email')}"></div>
+    </div>
+    <div class="form-sekcja"><div class="form-sekcja-tytul">📍 Adres</div>
+    <div class="form-pole"><label class="form-lbl">Ulica</label><input class="form-input" id="fAdres" value="${v('adres')}"></div>
+    <div class="form-pole"><label class="form-lbl">Miasto</label><input class="form-input" id="fMiasto" value="${v('miasto')}"></div>
+    <div class="form-pole"><label class="form-lbl">Województwo</label><div class="form-chips" id="fWoj">${WOJEWODZTWA.map(w=>`<div class="form-chip ${woj===w?'active':''}" onclick="selectChip('fWoj','${w}',this)">${w}</div>`).join('')}</div></div>
+    </div>
+    <div class="form-sekcja"><div class="form-sekcja-tytul">🏷️ Klasyfikacja</div>
+    <div class="form-pole"><label class="form-lbl">Podgrupa</label><div class="form-chips" id="fTyp">${PODGRUPY.map(p=>`<div class="form-chip ${typ===p.key?'active':''}" data-val="${p.key}" onclick="selectChip('fTyp','${p.key}',this)">${p.ico} ${p.label}</div>`).join('')}</div></div>
+    <div class="form-pole"><label class="form-lbl">Status</label><div class="form-chips" id="fStatus">${Object.entries(STATUSY).map(([s,v])=>`<div class="form-chip ${status===s?'active':''}" data-val="${s}" onclick="selectChip('fStatus','${s}',this)">${v.label}</div>`).join('')}</div></div>
+    <div class="form-pole"><label class="form-lbl">Potencjał</label><div class="form-chips" id="fPotencjal"><div class="form-chip ${potencjal==='wysoki'?'active':''}" data-val="wysoki" onclick="selectChip('fPotencjal','wysoki',this)">🔴 Wysoki</div><div class="form-chip ${potencjal==='sredni'?'active':''}" data-val="sredni" onclick="selectChip('fPotencjal','sredni',this)">🟡 Średni</div><div class="form-chip ${potencjal==='niski'?'active':''}" data-val="niski" onclick="selectChip('fPotencjal','niski',this)">⚪ Niski</div></div></div>
+    </div>
+    <div class="form-sekcja"><div class="form-sekcja-tytul">🌿 Produkty</div><div class="form-chips" id="fProdukty">${PRODUKTY.map(p=>`<div class="form-chip ${produkty.includes(p)?'active':''}" onclick="this.classList.toggle('active')">${p}</div>`).join('')}</div></div>
+    <div class="form-sekcja"><div class="form-sekcja-tytul">📅 Działania</div>
+    <div class="form-pole"><label class="form-lbl">Follow-up</label><input class="form-input" id="fFollowup" type="date" value="${v('followup')}"></div>
+    <div class="form-pole"><label class="form-lbl">Działanie</label><input class="form-input" id="fDzialanie" value="${v('dzialanie')}"></div>
+    <div class="form-pole"><label class="form-lbl">Notatka</label><textarea class="form-input" id="fNotatka" rows="3">${v('notatka')}</textarea></div>
+    </div>
+    <button class="form-save-btn" onclick="zapiszForm()">💾 Zapisz klienta</button>
+    ${k?`<button onclick="usunKlient('${k.id}')" style="width:100%;padding:14px;border-radius:10px;border:1px solid var(--red);background:#fff;color:var(--red);font-size:14px;font-weight:700;cursor:pointer;margin-bottom:10px">🗑️ Usuń</button>`:''}`;
+  prevScreen=currentScreen;currentScreen='form';
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screenForm').classList.add('active');
+}
+
+function selectChip(gid,val,el){document.querySelectorAll(`#${gid} .form-chip`).forEach(c=>c.classList.remove('active'));el.classList.add('active');el.dataset.val=val}
+function getChipVal(gid){const a=document.querySelector(`#${gid} .form-chip.active`);return a?a.dataset.val||'':''}
+
+function zapiszForm(){
+  const nazwa=document.getElementById('fNazwa').value.trim();
+  if(!nazwa){toast('⚠️ Podaj nazwę!');return}
+  const produkty=Array.from(document.querySelectorAll('#fProdukty .form-chip.active')).map(c=>c.textContent.trim());
+  const existing=editingId?DB.find(k=>k.id===editingId):null;
+  const klient={...(existing||{}),id:editingId||genId(),created:existing?.created||Date.now(),nazwa,kontakt:document.getElementById('fKontakt').value.trim(),telefon:document.getElementById('fTelefon').value.trim(),email:document.getElementById('fEmail').value.trim(),adres:document.getElementById('fAdres').value.trim(),miasto:document.getElementById('fMiasto').value.trim(),woj:getChipVal('fWoj')||(document.querySelector('#fWoj .form-chip.active')?.textContent.trim()||''),typ:getChipVal('fTyp')||'inny',status:getChipVal('fStatus')||'nowy',potencjal:getChipVal('fPotencjal')||'sredni',produkty,followup:document.getElementById('fFollowup').value,dzialanie:document.getElementById('fDzialanie').value.trim(),notatka:document.getElementById('fNotatka').value.trim(),notatki:existing?.notatki||[]};
+  if(editingId){const idx=DB.findIndex(k=>k.id===editingId);if(idx>=0)DB[idx]=klient}else DB.unshift(klient);
+  saveKlient(klient);toast('✅ Zapisano!');goBack();if(editingId)openKlient(editingId);
+}
+function usunKlient(id){if(!confirm('Usunąć?'))return;deleteKlient(id);toast('🗑️ Usunięto');goScreen('klienci')}
+
+function zapiszNotatke(id){
+  const txt=document.getElementById('notatkaPole').value.trim();
+  if(!txt){toast('⚠️ Wpisz notatkę!');return}
+  const k=DB.find(x=>x.id===id);if(!k)return;
+  if(!k.notatki)k.notatki=[];
+  k.notatki.unshift({txt,data:todayStr(),autor:'Darek'});
+  k.ostatni=todayStr();saveKlient(k);
+  document.getElementById('notatkaPole').value='';
+  toast('✅ Notatka zapisana!');openKlient(id);
+}
+
+function toggleVoice(){if(voiceActive)stopVoice();else startVoice()}
+function startVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){toast('⚠️ Brak obsługi nagrywania');return}
+  if(!recognition){
+    recognition=new SR();recognition.lang='pl-PL';recognition.continuous=true;recognition.interimResults=true;
+    recognition.onresult=e=>{let f='',i='';for(let j=e.resultIndex;j<e.results.length;j++)e.results[j].isFinal?f+=e.results[j][0].transcript:i+=e.results[j][0].transcript;if(f)voiceText+=f+' ';const tr=document.getElementById('voiceTranscript');if(tr){tr.style.display='block';tr.textContent=voiceText+i}};
+    recognition.onend=()=>{if(voiceActive)recognition.start()};
+    recognition.onerror=e=>{if(e.error==='not-allowed'){toast('⚠️ Brak mikrofonu');stopVoice()}};
+  }
+  voiceText='';voiceActive=true;recognition.start();
+  const btn=document.getElementById('micBtn');const txt=document.getElementById('micTxt');const ind=document.getElementById('recIndicator');
+  if(btn)btn.classList.add('recording');if(txt)txt.textContent='⏹️ Zatrzymaj';if(ind)ind.style.display='block';
+}
+function stopVoice(){
+  voiceActive=false;if(recognition){try{recognition.stop()}catch(e){}}
+  const btn=document.getElementById('micBtn');const txt=document.getElementById('micTxt');const ind=document.getElementById('recIndicator');
+  if(btn)btn.classList.remove('recording');if(txt)txt.textContent='🎤 Nagraj notatkę';if(ind)ind.style.display='none';
+  if(voiceText.trim()){const p=document.getElementById('notatkaPole');if(p)p.value=voiceText.trim();toast('✅ Gotowe!')}
+}
+
+function initTrasa(){
+  const pg=document.getElementById('trasaChipsPodgrupa');
+  PODGRUPY.forEach(p=>{const c=document.createElement('div');c.className='chip';c.style.cssText='border-color:#ddd;background:#fff;color:var(--tx)';c.textContent=`${p.ico} ${p.label}`;c.onclick=()=>setTrasaFilter('typ',p.key,c);pg.appendChild(c)});
+  const wj=document.getElementById('trasaChipsWoj');
+  WOJEWODZTWA.forEach(w=>{const c=document.createElement('div');c.className='chip';c.style.cssText='border-color:#ddd;background:#fff;color:var(--tx)';c.textContent=w;c.onclick=()=>setTrasaFilter('woj',w,c);wj.appendChild(c)});
+}
+function setTrasaFilter(key,val,el){trasaFilter[key]=val;el.parentElement.querySelectorAll('.chip').forEach(c=>{c.style.background='#fff';c.style.color='var(--tx)';c.style.fontWeight='normal'});el.style.background='var(--g2)';el.style.color='#fff';el.style.fontWeight='700';renderTrasa()}
+function getTrasaFiltered(){return DB.filter(k=>{if(trasaFilter.typ&&k.typ!==trasaFilter.typ)return false;if(trasaFilter.woj&&k.woj!==trasaFilter.woj)return false;if(trasaFilter.status&&k.status!==trasaFilter.status)return false;if(document.getElementById('swEmail')?.checked&&!k.email)return false;if(document.getElementById('swTel')?.checked&&!k.telefon)return false;return true})}
+function renderTrasa(){
+  const list=getTrasaFiltered();
+  const wybrani=wybraniIds.filter(id=>list.find(k=>k.id===id));
+  document.getElementById('trasaWynikTxt').textContent=`${list.length} klientów · ${wybrani.length} zaznaczonych`;
+  document.getElementById('trasaBtn').textContent=`🗺️ Otwórz w Google Maps (${wybrani.length||Math.min(list.length,10)} punktów)`;
+  document.getElementById('trasaList').innerHTML=list.slice(0,60).map(k=>{const sel=wybraniIds.includes(k.id);return`<div class="klient-item ${sel?'selected':''}" onclick="toggleWybor('${k.id}')"><div class="klient-item-left"><span style="font-size:18px">${sel?'✅':'⬜'}</span><span style="font-size:18px">${podgrupaIco(k.typ)}</span><div style="min-width:0"><div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k.nazwa)}</div><div style="font-size:11px;color:var(--tx3)">${esc(k.miasto||'')}${k.miasto&&k.woj?' · ':''}${esc(k.woj||'')}</div></div></div>${k.telefon?`<button class="dzwon-btn" onclick="event.stopPropagation();window.location='tel:${k.telefon}'">📞</button>`:''}</div>`}).join('');
+}
+function toggleWybor(id){if(wybraniIds.includes(id))wybraniIds=wybraniIds.filter(x=>x!==id);else wybraniIds.push(id);renderTrasa()}
+function zaznaczWszystkich(){const list=getTrasaFiltered();wybraniIds=wybraniIds.length===list.length?[]:list.map(k=>k.id);renderTrasa()}
+function otworzTrase(){
+  const list=getTrasaFiltered();
+  const wybrani=wybraniIds.length>0?DB.filter(k=>wybraniIds.includes(k.id)):list.slice(0,10);
+  if(!wybrani.length){toast('⚠️ Brak klientów');return}
+  const punkty=wybrani.filter(k=>k.miasto).map(k=>encodeURIComponent(`${k.adres||''} ${k.miasto} Polska`.trim())).slice(0,10);
+  if(!punkty.length){toast('⚠️ Brak adresów');return}
+  window.open(punkty.length===1?`https://www.google.com/maps/search/${punkty[0]}`:`https://www.google.com/maps/dir/${punkty.join('/')}`,'_blank');
+}
+
+// ═══ RAPORTY ═════════════════════════════════════════════════════════════════
+function initRaportDaty(){
+  const today=new Date(),dow=today.getDay();
+  const mon=new Date(today);mon.setDate(today.getDate()+(dow===0?-6:1-dow)-7);
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  const fmt=d=>d.toISOString().slice(0,10);
+  const od=document.getElementById('raportOd'),doo=document.getElementById('raportDo');
+  if(od&&!od.value)od.value=fmt(mon);
+  if(doo&&!doo.value)doo.value=fmt(sun);
+}
+
+function pobierzExcel(rows,filename){
+  let html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Raport</x:Name></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table border="1">`;
+  rows.forEach((row,ri)=>{
+    html+='<tr>';
+    if(!Array.isArray(row)){html+=`<td colspan="15" style="background:#1a3d1a;color:#fff;font-weight:bold">${esc(String(row))}</td>`}
+    else row.forEach(cell=>{const s=ri===0?'background:#1a3d1a;color:#fff;font-weight:bold;font-size:13px':ri<=2?'background:#2d6a2d;color:#fff':ri%2===0?'background:#f9f7f0':'';html+=`<td style="${s}">${esc(String(cell||''))}</td>`});
+    html+='</tr>';
+  });
+  html+='</table></body></html>';
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+html],{type:'application/vnd.ms-excel;charset=utf-8'}));a.download=filename;a.click();
+}
+
+function generujRaport(){
+  const od=document.getElementById('raportOd').value,doo=document.getElementById('raportDo').value;
+  if(!od||!doo){toast('⚠️ Wybierz daty!');return}
+  const kl=DB.filter(k=>k.ostatni>=od&&k.ostatni<=doo);
+  const not=[];DB.forEach(k=>(k.notatki||[]).forEach(n=>{if(n.data>=od&&n.data<=doo)not.push({...n,klient:k.nazwa})}));
+  const rows=[
+    ['AGRA POLSKA — RAPORT TYGODNIOWY'],
+    [`Tydzień: ${od} – ${doo} | Handlowiec: Darek Radko`],[],
+    ['PODSUMOWANIE'],
+    ['Wizyty/Kontakty w tygodniu',kl.length],['Notatki z wizyt',not.length],
+    ['Pipeline (oferty)',DB.filter(k=>k.status==='oferta').length],
+    ['Aktywni klienci',DB.filter(k=>k.status==='klient').length],
+    ['Łącznie w bazie',DB.length],[],
+    ['SZCZEGÓŁY WIZYT'],
+    ['Klient','Typ','Województwo','Ostatni kontakt','Status','Produkty','Notatka'],
+    ...kl.map(k=>[k.nazwa,k.typ,k.woj,k.ostatni,k.status,(k.produkty||[]).join(', '),(k.notatki||[]).slice(0,1).map(n=>n.txt).join('')]),
+    [],[`NOTATKI Z WIZYT (${not.length})`],
+    ['Klient','Data','Treść'],
+    ...not.map(n=>[n.klient,n.data,n.txt]),
+    [],[`Wygenerowano: ${todayStr()} | Dla: Dagmar Peterková`]
+  ];
+  pobierzExcel(rows,`Raport_AGRA_${od}_${doo}.xls`);toast('✅ Raport gotowy!');
+}
+
+function generujPlan(){
+  const today=new Date(),dow=today.getDay();
+  const mon=new Date(today);mon.setDate(today.getDate()+(dow===0?1:8-dow));
+  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  const fmt=d=>d.toISOString().slice(0,10);
+  const od=fmt(mon),doo=fmt(sun);
+  const planFU=DB.filter(k=>k.followup>=od&&k.followup<=doo).sort((a,b)=>a.followup.localeCompare(b.followup));
+  const doKont=DB.filter(k=>k.potencjal==='wysoki'&&k.status!=='klient'&&(!k.followup||k.followup<od)).slice(0,10);
+  const rows=[
+    ['AGRA POLSKA — PLAN PRACY'],
+    [`Tydzień: ${od} – ${doo} | Handlowiec: Darek Radko`],[],
+    [`ZAPLANOWANE FOLLOW-UPY (${planFU.length})`],
+    ['Lp.','Data','Klient','Miasto','Województwo','Telefon','Email','Kontakt','Typ','Działanie','Produkty'],
+    ...planFU.map((k,i)=>[i+1,k.followup,k.nazwa,k.miasto,k.woj,k.telefon||'',k.email||'',k.kontakt||'',k.typ,k.dzialanie||'',(k.produkty||[]).join(', ')]),
+    [],[`DO KONTAKTU — WYSOKI POTENCJAŁ (${doKont.length})`],
+    ['Lp.','Klient','Miasto','Województwo','Telefon','Email','Status','Produkty'],
+    ...doKont.map((k,i)=>[i+1,k.nazwa,k.miasto,k.woj,k.telefon||'',k.email||'',k.status,(k.produkty||[]).join(', ')]),
+    [],[`Wygenerowano: ${todayStr()} | Follow-upy: ${planFU.length} | Do kontaktu: ${doKont.length}`]
+  ];
+  pobierzExcel(rows,`Plan_AGRA_${od}_${doo}.xls`);toast('✅ Plan gotowy!');
+}
+
+function eksportujExcel(){
+  const rows=[['AGRA CRM — Baza klientów'],[`Eksport: ${todayStr()} | Łącznie: ${DB.length}`],[],['Nazwa','Kontakt','Telefon','Email','Adres','Miasto','Województwo','Typ','Status','Potencjał','Produkty','Follow-up'],...DB.map(k=>[k.nazwa,k.kontakt||'',k.telefon||'',k.email||'',k.adres||'',k.miasto||'',k.woj||'',k.typ||'',k.status||'',k.potencjal||'',(k.produkty||[]).join(', '),k.followup||''])];
+  pobierzExcel(rows,`AGRA_CRM_${todayStr()}.xls`);toast(`✅ Eksport ${DB.length} klientów`);
+}
+
+function eksportujCSV(){
+  const h=['nazwa','kontakt','telefon','email','adres','miasto','wojewodztwo','typ','status','potencjal','produkty','followup','notatka'];
+  const lines=[h.join(';'),...DB.map(k=>[k.nazwa,k.kontakt||'',k.telefon||'',k.email||'',k.adres||'',k.miasto||'',k.woj||'',k.typ||'',k.status||'',k.potencjal||'',(k.produkty||[]).join('|'),k.followup||'',k.notatka||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';'))];
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'}));a.download=`AGRA_CRM_${todayStr()}.csv`;a.click();toast(`✅ CSV: ${DB.length}`);
+}
+
+// ═══ INIT ═════════════════════════════════════════════════════════════════════
+window.onload=()=>{
+  setInterval(()=>{const el=document.getElementById('fbSync');if(el&&window.firebaseReady)el.textContent='☁️ sync'},2000);
+  if(!DB.length){
+    DB=[
+      {id:genId(),created:Date.now(),nazwa:'Winnica Rytwiany',kontakt:'Stefan Dunin',telefon:'+48 604 123 456',email:'villa.sichow@winnica.pl',miasto:'Rytwiany',woj:'świętokrzyskie',typ:'winnica',status:'kontakt',potencjal:'wysoki',ostatni:'2026-05-08',followup:todayStr(),dzialanie:'Wysłać ofertę CHEVRI Cu-Combi',produkty:['CHEVRI Cu-Combi','StabilureN'],notatki:[]},
+      {id:genId(),created:Date.now(),nazwa:'Winnica De Sas Sp. z o.o.',telefon:'+48 713 384 500',email:'zuberdesas@gmail.com',miasto:'Krośnice',woj:'dolnośląskie',typ:'winnica',status:'nowy',potencjal:'wysoki',produkty:['CHEVRI Cu-Combi'],notatki:[]},
+      {id:genId(),created:Date.now(),nazwa:'Sad Jabłoniowy Kowalski',telefon:'+48 501 234 567',email:'sad@kowalski.pl',miasto:'Grójec',woj:'mazowieckie',typ:'sad',status:'klient',potencjal:'sredni',produkty:['RETAFOS Prim'],notatki:[]},
+    ];
+    save();
+  }
+  initTrasa();renderDashboard();renderKlienci();
+  document.addEventListener('dragover',e=>e.preventDefault());
+  document.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f&&f.name.endsWith('.csv'))importCSV(f)});
+};
+
+function importCSV(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const lines=e.target.result.split('\n');
+    const headers=lines[0].split(';').map(h=>h.trim().replace(/^"|"$/g,'').toLowerCase());
+    let dodano=0;
+    for(let i=1;i<lines.length;i++){
+      const vals=lines[i].split(';').map(v=>v.trim().replace(/^"|"$/g,''));
+      if(!vals[0])continue;
+      const obj={};headers.forEach((h,j)=>obj[h]=vals[j]||'');
+      const k={id:genId(),created:Date.now(),nazwa:obj.nazwa||'',kontakt:obj.kontakt||'',telefon:obj.telefon||'',email:obj.email||'',adres:obj.adres||'',miasto:obj.miasto||'',woj:obj.wojewodztwo||obj.woj||'',typ:obj.typ||'inny',status:obj.status||'nowy',potencjal:obj.potencjal||'niski',produkty:(obj.produkty||'').split(/[|,]/).map(p=>p.trim()).filter(Boolean),notatka:obj.notatka||'',notatki:[]};
+      if(k.nazwa){DB.push(k);dodano++}
+    }
+    save();renderDashboard();toast(`✅ Zaimportowano ${dodano}`);
+  };
+  reader.readAsText(file,'utf-8');
+}
+</script>
+
+<script type="module">
+import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import{getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot,query,orderBy}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+const app=initializeApp({apiKey:"AIzaSyC8itr8G7wy21cARjbkfGOs3S3--PF8RoW4",authDomain:"agra-crm.firebaseapp.com",projectId:"agra-crm",storageBucket:"agra-crm.firebasestorage.app",messagingSenderId:"487492337747",appId:"1:487492337747:web:92c37a62e6c928de3bc6a6"});
+const db=getFirestore(app);
+window.firebaseReady=false;
+onSnapshot(query(collection(db,'klienci'),orderBy('nazwa')),snap=>{
+  if(snap.empty&&!window.firebaseReady){if(window.DB&&window.DB.length>0)window.pushAllToFirebase&&window.pushAllToFirebase();window.firebaseReady=true;return}
+  window.DB=snap.docs.map(d=>({...d.data(),id:d.id}));
+  window.firebaseReady=true;
+  localStorage.setItem('agra_crm',JSON.stringify(window.DB));
+  if(typeof updateStats==='function')updateStats();
+  if(typeof renderDashboard==='function')renderDashboard();
+  if(typeof renderKlienci==='function'&&window.currentScreen==='klienci')renderKlienci();
+});
+window.saveToFirebase=async k=>{try{await setDoc(doc(db,'klienci',k.id),k)}catch(e){console.warn(e)}};
+window.deleteFromFirebase=async id=>{try{await deleteDoc(doc(db,'klienci',id))}catch(e){console.warn(e)}};
+window.pushAllToFirebase=async()=>{for(const k of window.DB)await setDoc(doc(db,'klienci',k.id),k)};
+</script>
+</body>
+</html>
