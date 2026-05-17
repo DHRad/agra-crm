@@ -782,7 +782,27 @@ onSnapshot(query(collection(db,'klienci'),orderBy('nazwa')),snap=>{
 });
 window.saveToFirebase=async k=>{try{await setDoc(doc(db,'klienci',k.id),k)}catch(e){console.warn(e)}};
 window.deleteFromFirebase=async id=>{try{await deleteDoc(doc(db,'klienci',id))}catch(e){console.warn(e)}};
-window.pushAllToFirebase=async()=>{for(const k of window.DB)await setDoc(doc(db,'klienci',k.id),k)};
+window.pushAllToFirebase=async()=>{
+  const total=window.DB.length;
+  let done=0,errors=0;
+  // Pokaż popup z postępem
+  const popup=document.createElement('div');
+  popup.id='syncPopup';
+  popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a3d1a;color:#fff;padding:20px 30px;border-radius:12px;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,.5);text-align:center;min-width:280px';
+  popup.innerHTML='<div style="font-size:18px;font-weight:800;margin-bottom:10px">☁️ Synchronizacja chmury</div><div id="syncMsg" style="font-size:14px;margin-bottom:12px">Przygotowuję...</div><div style="background:rgba(255,255,255,.2);border-radius:8px;height:12px;overflow:hidden"><div id="syncBar" style="background:#c8a83a;height:100%;width:0%;transition:width .3s"></div></div><div id="syncPct" style="font-size:11px;margin-top:8px;color:#c8a83a">0%</div>';
+  document.body.appendChild(popup);
+  const updateUI=()=>{const pct=Math.round(done/total*100);document.getElementById('syncMsg').textContent=`${done} / ${total} klientów`;document.getElementById('syncBar').style.width=pct+'%';document.getElementById('syncPct').textContent=pct+'%'+(errors?` (${errors} błędów)`:'')};
+  // Batchowy zapis - paczki po 400 równolegle
+  const BATCH=400;
+  for(let i=0;i<total;i+=BATCH){
+    const slice=window.DB.slice(i,i+BATCH);
+    await Promise.all(slice.map(k=>setDoc(doc(db,'klienci',k.id),k).then(()=>done++).catch(()=>{errors++;done++})));
+    updateUI();
+  }
+  document.getElementById('syncMsg').textContent='✅ Gotowe!';
+  setTimeout(()=>{const p=document.getElementById('syncPopup');if(p)p.remove()},3000);
+};
+window.batchSync=()=>{if(confirm(`Wgrać ${window.DB.length} klientów do chmury Firebase? (~30-60 sek)`))window.pushAllToFirebase()};
 </script>
 </body>
 </html>
