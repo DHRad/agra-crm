@@ -407,7 +407,7 @@ function openKlient(id){
   html+='</div>';
   
   // Notatki - z edycją
-  html+=`<div class="card"><div class="sekcja-tytul">🎤 Nowa notatka</div><button class="mic-btn" id="micBtn" onclick="toggleVoice()"><span>🎤</span><span id="micTxt">Nagraj notatkę</span></button><div class="recording-indicator" id="recIndicator">⏺️ Nagrywam...</div><div class="voice-transcript" id="voiceTranscript"></div><textarea class="notatka-pole" id="notatkaPole" placeholder="Lub wpisz ręcznie..."></textarea><button class="zapisz-btn" onclick="zapiszNotatke('${id}')">💾 Zapisz notatkę</button></div>`;
+  html+=`<div class="card"><div class="sekcja-tytul">🎤 Nowa notatka</div><button class="mic-btn" id="micBtn" onclick="toggleVoice()"><span>🎤</span><span id="micTxt">Nagraj notatkę</span></button><div class="recording-indicator" id="recIndicator">⏺️ Nagrywam...</div><div class="voice-transcript" id="voiceTranscript"></div><textarea class="notatka-pole" id="notatkaPole" placeholder="Lub wpisz ręcznie..."></textarea><div style="display:flex;gap:8px;align-items:center;margin-top:8px"><label style="font-size:12px;color:var(--tx2);font-weight:600">📅 Data:</label><input type="date" id="notatkaData" value="${todayStr()}" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:8px;font-size:14px;background:#fafafa"></div><button class="zapisz-btn" onclick="zapiszNotatke('${id}')">💾 Zapisz notatkę</button></div>`;
   if((k.notatki||[]).length)html+=`<div class="card"><div class="sekcja-tytul">💬 Historia notatek</div>${(k.notatki||[]).map((n,i)=>`<div class="notatka-wpis" id="not_${id}_${i}"><div class="notatka-txt" id="nottxt_${id}_${i}">${esc(n.txt)}</div><div class="notatka-meta">${n.autor||'Darek'} · ${n.data} <button onclick="edytujNotatke('${id}',${i})" style="margin-left:8px;background:none;border:none;color:var(--blue);cursor:pointer;font-size:11px">✏️ Edytuj</button> <button onclick="usunNotatke('${id}',${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px">🗑️ Usuń</button></div></div>`).join('')}</div>`;
   html+='<div style="height:20px"></div>';
   document.getElementById('detailBody').innerHTML=html;
@@ -472,8 +472,13 @@ function zapiszNotatke(id){
   if(!txt){toast('⚠️ Wpisz notatkę!');return}
   const k=DB.find(x=>x.id===id);if(!k)return;
   if(!k.notatki)k.notatki=[];
-  k.notatki.unshift({txt,data:todayStr(),autor:'Darek'});
-  k.ostatni=todayStr();saveKlient(k);
+  // Czytamy wybraną datę z pola (domyślnie dzisiejsza)
+  const dataPole=document.getElementById('notatkaData');
+  const dataNotatki=(dataPole&&dataPole.value)?dataPole.value:todayStr();
+  k.notatki.unshift({txt,data:dataNotatki,autor:'Darek'});
+  // Ostatni kontakt = data notatki (jeśli późniejsza niż obecna)
+  if(!k.ostatni||dataNotatki>k.ostatni)k.ostatni=dataNotatki;
+  saveKlient(k);
   document.getElementById('notatkaPole').value='';
   toast('✅ Notatka zapisana!');openKlient(id);
 }
@@ -484,7 +489,10 @@ function edytujNotatke(id,idx){
   const nowa=prompt('Edytuj notatkę:',k.notatki[idx].txt);
   if(nowa===null)return;
   if(!nowa.trim()){toast('⚠️ Notatka nie może być pusta');return}
+  const dataNow=prompt('Data notatki (YYYY-MM-DD):',k.notatki[idx].data||todayStr());
+  if(dataNow===null)return;
   k.notatki[idx].txt=nowa.trim();
+  if(dataNow.trim())k.notatki[idx].data=dataNow.trim();
   k.notatki[idx].edited=todayStr();
   saveKlient(k);toast('✅ Edytowano');openKlient(id);
 }
@@ -678,7 +686,7 @@ function generujRaport(){
     [`NOTATKI Z WIZYT (${not.length})`],
     ['Data','Klient','Miasto','Treść'],
     ...not.map(n=>[n.data,n.klient,n.miasto||'',n.txt]),
-    [],[`Wygenerowano: ${todayStr()} | Dla: Dagmar Peterková`]
+    [],[`Wygenerowano: ${todayStr()} | Dla: David Ryčl, Sales Manager`]
   ];
   pobierzExcel(rows,`Raport_AGRA_${od}_${doo}.xls`);toast('✅ Raport gotowy!');
 }
