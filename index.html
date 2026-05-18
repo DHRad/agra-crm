@@ -686,32 +686,77 @@ function generujRaport(){
     [`NOTATKI Z WIZYT (${not.length})`],
     ['Data','Klient','Miasto','Treść'],
     ...not.map(n=>[n.data,n.klient,n.miasto||'',n.txt]),
-    [],[`Wygenerowano: ${todayStr()} | Dla: David Ryčl, Sales Manager`]
+    [],
+    
+    ...(()=>{
+      // Wszystkie niewykonane zadania
+      const today=todayStr();
+      const overdue=[];const upcoming=[];
+      DB.forEach(k=>(k.zadania||[]).forEach(z=>{
+        if(z.done||!z.data)return;
+        const item={data:z.data,klient:k.nazwa,miasto:k.miasto||'',woj:k.woj||'',tytul:z.tytul||z.txt||'',telefon:k.telefon||''};
+        if(z.data<today)overdue.push(item);
+        else upcoming.push(item);
+      }));
+      overdue.sort((a,b)=>a.data.localeCompare(b.data));
+      upcoming.sort((a,b)=>a.data.localeCompare(b.data));
+      const out=[];
+      if(overdue.length){
+        out.push([`⚠️ PRZETERMINOWANE ZADANIA (${overdue.length})`]);
+        out.push(['Termin','Klient','Miasto','Województwo','Zadanie','Telefon']);
+        overdue.forEach(z=>out.push([z.data,z.klient,z.miasto,z.woj,z.tytul,z.telefon]));
+        out.push([]);
+      }
+      if(upcoming.length){
+        out.push([`📅 NADCHODZĄCE ZADANIA (${upcoming.length})`]);
+        out.push(['Termin','Klient','Miasto','Województwo','Zadanie','Telefon']);
+        upcoming.forEach(z=>out.push([z.data,z.klient,z.miasto,z.woj,z.tytul,z.telefon]));
+        out.push([]);
+      }
+      return out;
+    })(),
+    
+    [`Wygenerowano: ${todayStr()} | Dla: David Ryčl, Sales Manager`]
   ];
   pobierzExcel(rows,`Raport_AGRA_${od}_${doo}.xls`);toast('✅ Raport gotowy!');
 }
 
 function generujPlan(){
   const today=new Date(),dow=today.getDay();
-  const mon=new Date(today);mon.setDate(today.getDate()+(dow===0?1:8-dow));
-  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
+  // Bierz BIEŻĄCY tydzień (od dziś) + cały NASTĘPNY tydzień
   const fmt=d=>d.toISOString().slice(0,10);
-  const od=fmt(mon),doo=fmt(sun);
+  const todayS=fmt(today);
+  // Niedziela następnego tygodnia
+  const sun=new Date(today);
+  const daysToNextSun=dow===0?7:(7-dow)+7;
+  sun.setDate(today.getDate()+daysToNextSun);
+  const od=todayS,doo=fmt(sun);
   
-  // Stare follow-upy
-  const planFU=DB.filter(k=>k.followup>=od&&k.followup<=doo).sort((a,b)=>a.followup.localeCompare(b.followup));
+  // Stare follow-upy (od dziś do końca następnego tygodnia)
+  const planFU=DB.filter(k=>k.followup&&k.followup>=od&&k.followup<=doo).sort((a,b)=>a.followup.localeCompare(b.followup));
   
-  // Nowe zadania w okresie
+  // Nowe zadania w okresie (od dziś do końca następnego tygodnia)
   const planZad=[];
-  DB.forEach(k=>(k.zadania||[]).forEach(z=>{if(!z.done&&z.data>=od&&z.data<=doo)planZad.push({k,z})}));
+  DB.forEach(k=>(k.zadania||[]).forEach(z=>{if(!z.done&&z.data&&z.data>=od&&z.data<=doo)planZad.push({k,z})}));
   planZad.sort((a,b)=>(a.z.data||'').localeCompare(b.z.data||''));
+  
+  // PRZETERMINOWANE zadania (niewykonane sprzed dziś)
+  const planOverdue=[];
+  DB.forEach(k=>(k.zadania||[]).forEach(z=>{if(!z.done&&z.data&&z.data<od)planOverdue.push({k,z})}));
+  planOverdue.sort((a,b)=>(a.z.data||'').localeCompare(b.z.data||''));
   
   const doKont=DB.filter(k=>k.potencjal==='wysoki'&&k.status!=='klient'&&(!k.followup||k.followup<od)).slice(0,15);
   
   const rows=[
     ['AGRA POLSKA — PLAN PRACY'],
-    [`Tydzień: ${od} – ${doo} | Handlowiec: Darek Radko`],[],
-    [`ZAPLANOWANE ZADANIA (${planZad.length})`],
+    [`Okres: ${od} – ${doo} | Handlowiec: Darek Radko`],[],
+    ...(planOverdue.length?[
+      [`⚠️ PRZETERMINOWANE ZADANIA (${planOverdue.length}) — DO ZAMKNIĘCIA`],
+      ['Lp.','Termin','Klient','Miasto','Województwo','Telefon','Zadanie','Typ klienta','Potencjał'],
+      ...planOverdue.map((p,i)=>[i+1,p.z.data,p.k.nazwa,p.k.miasto||'',p.k.woj||'',p.k.telefon||'',p.z.tytul||'',p.k.typ||'',p.k.potencjal||'']),
+      []
+    ]:[]),
+    [`📅 ZAPLANOWANE ZADANIA (${planZad.length})`],
     ['Lp.','Data','Klient','Miasto','Województwo','Telefon','Email','Zadanie','Typ klienta','Potencjał'],
     ...planZad.map((p,i)=>[i+1,p.z.data,p.k.nazwa,p.k.miasto||'',p.k.woj||'',p.k.telefon||'',p.k.email||'',p.z.tytul||'',p.k.typ||'',p.k.potencjal||'']),
     [],
@@ -721,7 +766,7 @@ function generujPlan(){
     [],[`DO KONTAKTU — WYSOKI POTENCJAŁ (${doKont.length})`],
     ['Lp.','Klient','Miasto','Województwo','Telefon','Email','Status','Produkty'],
     ...doKont.map((k,i)=>[i+1,k.nazwa,k.miasto||'',k.woj||'',k.telefon||'',k.email||'',k.status,(k.produkty||[]).join(', ')]),
-    [],[`Wygenerowano: ${todayStr()} | Zadania: ${planZad.length} | Follow-upy: ${planFU.length} | Do kontaktu: ${doKont.length}`]
+    [],[`Wygenerowano: ${todayStr()} | Przeterminowane: ${planOverdue.length} | Zaplanowane: ${planZad.length} | Follow-upy: ${planFU.length} | Do kontaktu: ${doKont.length}`]
   ];
   pobierzExcel(rows,`Plan_AGRA_${od}_${doo}.xls`);toast('✅ Plan gotowy!');
 }
