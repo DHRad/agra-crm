@@ -249,9 +249,33 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button class="raport-btn" style="background:var(--g1);color:#fff" onclick="generujRaport()">📊 Generuj raport tygodniowy</button>
     </div>
     <div class="card">
-      <div class="card-title">📅 Plan następnego tygodnia</div>
-      <p style="font-size:13px;color:var(--tx2);margin-bottom:12px">Follow-upy + klienci z wysokim potencjałem na przyszły tydzień.</p>
-      <button class="raport-btn" style="background:var(--gold);color:#1a1a14" onclick="generujPlan()">📅 Generuj plan tygodnia</button>
+      <div class="card-title">📅 Plan pracy</div>
+      <p style="font-size:13px;color:var(--tx2);margin-bottom:12px">Zadania, follow-upy i klienci z potencjałem za wybrany okres.</p>
+      <label class="form-lbl">Od:</label>
+      <input type="date" id="planOd" class="form-input" style="margin-bottom:8px">
+      <label class="form-lbl">Do:</label>
+      <input type="date" id="planDo" class="form-input" style="margin-bottom:8px">
+      <label class="form-lbl">Województwo (opcjonalnie):</label>
+      <select id="planWoj" class="form-input" style="margin-bottom:12px">
+        <option value="">— wszystkie województwa —</option>
+        <option value="dolnośląskie">dolnośląskie</option>
+        <option value="kujawsko-pomorskie">kujawsko-pomorskie</option>
+        <option value="lubelskie">lubelskie</option>
+        <option value="lubuskie">lubuskie</option>
+        <option value="łódzkie">łódzkie</option>
+        <option value="małopolskie">małopolskie</option>
+        <option value="mazowieckie">mazowieckie</option>
+        <option value="opolskie">opolskie</option>
+        <option value="podkarpackie">podkarpackie</option>
+        <option value="podlaskie">podlaskie</option>
+        <option value="pomorskie">pomorskie</option>
+        <option value="śląskie">śląskie</option>
+        <option value="świętokrzyskie">świętokrzyskie</option>
+        <option value="warmińsko-mazurskie">warmińsko-mazurskie</option>
+        <option value="wielkopolskie">wielkopolskie</option>
+        <option value="zachodniopomorskie">zachodniopomorskie</option>
+      </select>
+      <button class="raport-btn" style="background:var(--gold);color:#1a1a14" onclick="generujPlan()">📅 Generuj plan</button>
     </div>
     <div class="card">
       <div class="card-title">📤 Eksport bazy</div>
@@ -259,6 +283,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <button onclick="eksportujExcel()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--g2);color:#fff;font-size:14px;font-weight:700;cursor:pointer">📊 Excel</button>
         <button onclick="eksportujCSV()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--g2);background:#fff;color:var(--g2);font-size:14px;font-weight:700;cursor:pointer">📄 CSV</button>
       </div>
+    </div>
+    <div class="card" style="border:2px solid var(--gold)">
+      <div class="card-title">🛡️ Backup / Przywracanie (JSON)</div>
+      <div style="font-size:12px;color:var(--tx2);margin-bottom:10px;line-height:1.4">Pełny backup CAŁEJ bazy do pliku JSON. Użyj gdy baza zniknie - odtworzy wszystko.</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button onclick="eksportujJSON()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--gold);color:#fff;font-size:14px;font-weight:700;cursor:pointer">💾 Backup JSON</button>
+        <button onclick="document.getElementById('importJsonFile').click()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--gold);background:#fff;color:var(--gold);font-size:14px;font-weight:700;cursor:pointer">📥 Importuj JSON</button>
+      </div>
+      <input type="file" id="importJsonFile" accept=".json,application/json" style="display:none" onchange="importujJSON(event)">
     </div>
   </div>
 </div>
@@ -601,6 +634,13 @@ function initRaportDaty(){
   const od=document.getElementById('raportOd'),doo=document.getElementById('raportDo');
   if(od&&!od.value)od.value=fmt(mon);
   if(doo&&!doo.value)doo.value=fmt(sun);
+  // Plan: od dziś do końca następnego tygodnia
+  const planSun=new Date(today);
+  const daysToNextSun=dow===0?7:(7-dow)+7;
+  planSun.setDate(today.getDate()+daysToNextSun);
+  const pOd=document.getElementById('planOd'),pDo=document.getElementById('planDo');
+  if(pOd&&!pOd.value)pOd.value=fmt(today);
+  if(pDo&&!pDo.value)pDo.value=fmt(planSun);
 }
 
 function pobierzExcel(rows,filename){
@@ -722,34 +762,52 @@ function generujRaport(){
 }
 
 function generujPlan(){
-  const today=new Date(),dow=today.getDay();
-  // Bierz BIEŻĄCY tydzień (od dziś) + cały NASTĘPNY tydzień
-  const fmt=d=>d.toISOString().slice(0,10);
-  const todayS=fmt(today);
-  // Niedziela następnego tygodnia
-  const sun=new Date(today);
-  const daysToNextSun=dow===0?7:(7-dow)+7;
-  sun.setDate(today.getDate()+daysToNextSun);
-  const od=todayS,doo=fmt(sun);
+  // Czytaj daty z pól (jak w raporcie)
+  let od=document.getElementById('planOd').value;
+  let doo=document.getElementById('planDo').value;
   
-  // Stare follow-upy (od dziś do końca następnego tygodnia)
-  const planFU=DB.filter(k=>k.followup&&k.followup>=od&&k.followup<=doo).sort((a,b)=>a.followup.localeCompare(b.followup));
+  // Domyślne wartości: od dziś do końca następnego tygodnia
+  if(!od||!doo){
+    const today=new Date(),dow=today.getDay();
+    const fmt=d=>d.toISOString().slice(0,10);
+    const sun=new Date(today);
+    const daysToNextSun=dow===0?7:(7-dow)+7;
+    sun.setDate(today.getDate()+daysToNextSun);
+    if(!od)od=fmt(today);
+    if(!doo)doo=fmt(sun);
+    // Podstaw do pól żeby user widział
+    document.getElementById('planOd').value=od;
+    document.getElementById('planDo').value=doo;
+  }
   
-  // Nowe zadania w okresie (od dziś do końca następnego tygodnia)
+  if(od>doo){toast('⚠️ Data "od" musi być wcześniejsza niż "do"');return}
+  
+  const wojF=(document.getElementById('planWoj').value||'').trim().toLowerCase();
+  const today=todayStr();
+  
+  // Filtr po województwie
+  const matchWoj=k=>!wojF||(k.woj||'').toLowerCase().includes(wojF);
+  
+  // Follow-upy w okresie
+  const planFU=DB.filter(k=>k.followup&&k.followup>=od&&k.followup<=doo&&matchWoj(k)).sort((a,b)=>a.followup.localeCompare(b.followup));
+  
+  // Zadania w okresie
   const planZad=[];
-  DB.forEach(k=>(k.zadania||[]).forEach(z=>{if(!z.done&&z.data&&z.data>=od&&z.data<=doo)planZad.push({k,z})}));
+  DB.forEach(k=>{if(!matchWoj(k))return;(k.zadania||[]).forEach(z=>{if(!z.done&&z.data&&z.data>=od&&z.data<=doo)planZad.push({k,z})})});
   planZad.sort((a,b)=>(a.z.data||'').localeCompare(b.z.data||''));
   
-  // PRZETERMINOWANE zadania (niewykonane sprzed dziś)
+  // PRZETERMINOWANE zadania (zawsze pokazuj - sprzed dziś, niezależnie od okresu)
   const planOverdue=[];
-  DB.forEach(k=>(k.zadania||[]).forEach(z=>{if(!z.done&&z.data&&z.data<od)planOverdue.push({k,z})}));
+  DB.forEach(k=>{if(!matchWoj(k))return;(k.zadania||[]).forEach(z=>{if(!z.done&&z.data&&z.data<today)planOverdue.push({k,z})})});
   planOverdue.sort((a,b)=>(a.z.data||'').localeCompare(b.z.data||''));
   
-  const doKont=DB.filter(k=>k.potencjal==='wysoki'&&k.status!=='klient'&&(!k.followup||k.followup<od)).slice(0,15);
+  const doKont=DB.filter(k=>k.potencjal==='wysoki'&&k.status!=='klient'&&(!k.followup||k.followup<od)&&matchWoj(k)).slice(0,15);
+  
+  const tytulZakres=wojF?` | Województwo: ${wojF}`:'';
   
   const rows=[
     ['AGRA POLSKA — PLAN PRACY'],
-    [`Okres: ${od} – ${doo} | Handlowiec: Darek Radko`],[],
+    [`Okres: ${od} – ${doo} | Handlowiec: Darek Radko${tytulZakres}`],[],
     ...(planOverdue.length?[
       [`⚠️ PRZETERMINOWANE ZADANIA (${planOverdue.length}) — DO ZAMKNIĘCIA`],
       ['Lp.','Termin','Klient','Miasto','Województwo','Telefon','Zadanie','Typ klienta','Potencjał'],
@@ -768,7 +826,8 @@ function generujPlan(){
     ...doKont.map((k,i)=>[i+1,k.nazwa,k.miasto||'',k.woj||'',k.telefon||'',k.email||'',k.status,(k.produkty||[]).join(', ')]),
     [],[`Wygenerowano: ${todayStr()} | Przeterminowane: ${planOverdue.length} | Zaplanowane: ${planZad.length} | Follow-upy: ${planFU.length} | Do kontaktu: ${doKont.length}`]
   ];
-  pobierzExcel(rows,`Plan_AGRA_${od}_${doo}.xls`);toast('✅ Plan gotowy!');
+  const fileSuffix=wojF?`_${wojF}`:'';
+  pobierzExcel(rows,`Plan_AGRA_${od}_${doo}${fileSuffix}.xls`);toast('✅ Plan gotowy!');
 }
 
 function eksportujExcel(){
@@ -780,6 +839,49 @@ function eksportujCSV(){
   const h=['nazwa','kontakt','telefon','email','adres','miasto','wojewodztwo','typ','status','potencjal','produkty','followup','notatka'];
   const lines=[h.join(';'),...DB.map(k=>[k.nazwa,k.kontakt||'',k.telefon||'',k.email||'',k.adres||'',k.miasto||'',k.woj||'',k.typ||'',k.status||'',k.potencjal||'',(k.produkty||[]).join('|'),k.followup||'',k.notatka||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';'))];
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'}));a.download=`AGRA_CRM_${todayStr()}.csv`;a.click();toast(`✅ CSV: ${DB.length}`);
+}
+
+// === BACKUP JSON / IMPORT JSON ===
+function eksportujJSON(){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(DB)],{type:'application/json'}));
+  a.download=`AGRA_BACKUP_${todayStr()}.json`;
+  a.click();
+  toast(`💾 Backup: ${DB.length} klientów`);
+}
+
+function importujJSON(ev){
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const dane=JSON.parse(e.target.result);
+      if(!Array.isArray(dane)){toast('❌ Plik nie zawiera bazy klientów');return}
+      const ile=dane.length;
+      if(!confirm(`Wgrać ${ile} klientów? \nObecna baza (${DB.length}) zostanie ZASTĄPIONA. \n\nKontynuować?`))return;
+      // Dodaj brakujące pola
+      dane.forEach(k=>{
+        if(!k.zadania)k.zadania=[];
+        if(!k.kontakty)k.kontakty=[];
+        if(!k.notatki)k.notatki=[];
+        if(!k.id)k.id=genId();
+      });
+      DB=dane;
+      save();
+      // Wymusz sync wszystkich do chmury (z opóźnieniem żeby nie zalać)
+      if(typeof pushAllToFirebase==='function'){
+        toast(`✅ Wgrano ${ile}. Synchronizuję z chmurą...`);
+        setTimeout(()=>pushAllToFirebase&&pushAllToFirebase(),500);
+      }else{
+        toast(`✅ Wgrano ${ile} klientów`);
+      }
+      renderDashboard();renderKlienci();
+      ev.target.value='';
+    }catch(err){
+      toast('❌ Błąd: '+err.message);
+    }
+  };
+  r.readAsText(f);
 }
 
 // ═══ INIT ═════════════════════════════════════════════════════════════════════
