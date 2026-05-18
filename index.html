@@ -110,7 +110,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <body>
 
 <div class="header">
-  <div class="header-logo">AGRA <span>CRM</span> <span id="fbSync" style="font-size:10px;background:rgba(200,168,58,.2);color:var(--gold);padding:2px 7px;border-radius:10px;margin-left:6px">⏳</span></div>
+  <div class="header-logo">AGRA <span>CRM</span></div>
   <div class="header-stats">
     <div><b id="hKlientow">0</b>Klientów</div>
     <div><b id="hFollowup">0</b>Follow-up</div>
@@ -120,6 +120,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <!-- DASHBOARD -->
 <div class="screen active" id="screenDashboard">
+  <div class="card" style="border:2px solid var(--gold);margin-top:10px">
+    <div class="card-title" style="color:var(--gold)">🛡️ Backup / Synchronizacja</div>
+    <div style="font-size:12px;color:var(--tx2);margin-bottom:10px;line-height:1.4">Zapisz bazę na dysk i wgraj na innym urządzeniu. Łączy laptop ↔ telefon.</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="eksportujJSON()" style="flex:1;padding:14px 8px;border-radius:10px;border:none;background:var(--g2);color:#fff;font-size:14px;font-weight:700;cursor:pointer">💾 Zapisz<br>bazę</button>
+      <button onclick="document.getElementById('importJsonFile').click()" style="flex:1;padding:14px 8px;border-radius:10px;border:none;background:var(--gold);color:#1a1a14;font-size:14px;font-weight:700;cursor:pointer">📥 Wgraj<br>bazę</button>
+    </div>
+    <input type="file" id="importJsonFile" accept=".json,application/json" style="display:none" onchange="importujJSON(event)">
+  </div>
   <div style="padding:10px;padding-bottom:0">
     <div class="stats-row">
       <div class="stat-card" style="border-top-color:var(--g2)"><div class="stat-val" id="stKlientow">0</div><div class="stat-lbl">Klientów</div></div>
@@ -284,15 +293,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <button onclick="eksportujCSV()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--g2);background:#fff;color:var(--g2);font-size:14px;font-weight:700;cursor:pointer">📄 CSV</button>
       </div>
     </div>
-    <div class="card" style="border:2px solid var(--gold)">
-      <div class="card-title">🛡️ Backup / Przywracanie (JSON)</div>
-      <div style="font-size:12px;color:var(--tx2);margin-bottom:10px;line-height:1.4">Pełny backup CAŁEJ bazy do pliku JSON. Użyj gdy baza zniknie - odtworzy wszystko.</div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <button onclick="eksportujJSON()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--gold);color:#fff;font-size:14px;font-weight:700;cursor:pointer">💾 Backup JSON</button>
-        <button onclick="document.getElementById('importJsonFile').click()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--gold);background:#fff;color:var(--gold);font-size:14px;font-weight:700;cursor:pointer">📥 Importuj JSON</button>
-      </div>
-      <input type="file" id="importJsonFile" accept=".json,application/json" style="display:none" onchange="importujJSON(event)">
-    </div>
   </div>
 </div>
 
@@ -322,8 +322,8 @@ function esc(s){return(s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt
 function podgrupaIco(t){return(PODGRUPY.find(p=>p.key===t)||{ico:'👤'}).ico}
 function statusInfo(s){return STATUSY[s]||STATUSY.nowy}
 function save(){localStorage.setItem('agra_crm',JSON.stringify(DB));updateStats()}
-function saveKlient(k){save();if(window.saveToFirebase)window.saveToFirebase(k)}
-function deleteKlient(id){DB=DB.filter(x=>x.id!==id);save();if(window.deleteFromFirebase)window.deleteFromFirebase(id)}
+function saveKlient(k){save()}
+function deleteKlient(id){DB=DB.filter(x=>x.id!==id);save()}
 function toast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur)}
 
 function goScreen(name){
@@ -868,13 +868,7 @@ function importujJSON(ev){
       });
       DB=dane;
       save();
-      // Wymusz sync wszystkich do chmury (z opóźnieniem żeby nie zalać)
-      if(typeof pushAllToFirebase==='function'){
-        toast(`✅ Wgrano ${ile}. Synchronizuję z chmurą...`);
-        setTimeout(()=>pushAllToFirebase&&pushAllToFirebase(),500);
-      }else{
-        toast(`✅ Wgrano ${ile} klientów`);
-      }
+      toast(`✅ Wgrano ${ile} klientów`);
       renderDashboard();renderKlienci();
       ev.target.value='';
     }catch(err){
@@ -886,7 +880,6 @@ function importujJSON(ev){
 
 // ═══ INIT ═════════════════════════════════════════════════════════════════════
 window.onload=()=>{
-  setInterval(()=>{const el=document.getElementById('fbSync');if(el&&window.firebaseReady)el.textContent='☁️ sync'},2000);
   if(!DB.length){
     DB=[
       {id:genId(),created:Date.now(),nazwa:'Winnica Rytwiany',kontakt:'Stefan Dunin',telefon:'+48 604 123 456',email:'villa.sichow@winnica.pl',miasto:'Rytwiany',woj:'świętokrzyskie',typ:'winnica',status:'kontakt',potencjal:'wysoki',ostatni:'2026-05-08',followup:todayStr(),dzialanie:'Wysłać ofertę CHEVRI Cu-Combi',produkty:['CHEVRI Cu-Combi','StabilureN'],notatki:[]},
@@ -913,51 +906,10 @@ function importCSV(file){
       const k={id:genId(),created:Date.now(),nazwa:obj.nazwa||'',kontakt:obj.kontakt||'',telefon:obj.telefon||'',email:obj.email||'',adres:obj.adres||'',miasto:obj.miasto||'',woj:obj.wojewodztwo||obj.woj||'',typ:obj.typ||'inny',status:obj.status||'nowy',potencjal:obj.potencjal||'niski',produkty:(obj.produkty||'').split(/[|,]/).map(p=>p.trim()).filter(Boolean),notatka:obj.notatka||'',notatki:[],zadania:[],kontakty:[]};
       if(k.nazwa){DB.push(k);dodano++}
     }
-    save();renderDashboard();toast(`✅ Zaimportowano ${dodano}. Synchronizacja Firebase...`);
-    if(window.pushAllToFirebase){window.pushAllToFirebase().then(()=>toast('☁️ Zsynchronizowano z chmurą'));}
+    save();renderDashboard();renderKlienci();toast(`✅ Zaimportowano ${dodano} klientów`);
   };
   reader.readAsText(file,'utf-8');
 }
-</script>
-
-<script type="module">
-import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import{getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot,query,orderBy}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-const app=initializeApp({apiKey:"AIzaSyC8itr8G7wy21cARjbkfGOs3S3--PF8RoW4",authDomain:"agra-crm.firebaseapp.com",projectId:"agra-crm",storageBucket:"agra-crm.firebasestorage.app",messagingSenderId:"487492337747",appId:"1:487492337747:web:92c37a62e6c928de3bc6a6"});
-const db=getFirestore(app);
-window.firebaseReady=false;
-onSnapshot(query(collection(db,'klienci'),orderBy('nazwa')),snap=>{
-  if(snap.empty&&!window.firebaseReady){if(window.DB&&window.DB.length>0)window.pushAllToFirebase&&window.pushAllToFirebase();window.firebaseReady=true;return}
-  window.DB=snap.docs.map(d=>({...d.data(),id:d.id}));
-  window.firebaseReady=true;
-  localStorage.setItem('agra_crm',JSON.stringify(window.DB));
-  if(typeof updateStats==='function')updateStats();
-  if(typeof renderDashboard==='function')renderDashboard();
-  if(typeof renderKlienci==='function'&&window.currentScreen==='klienci')renderKlienci();
-});
-window.saveToFirebase=async k=>{try{await setDoc(doc(db,'klienci',k.id),k)}catch(e){console.warn(e)}};
-window.deleteFromFirebase=async id=>{try{await deleteDoc(doc(db,'klienci',id))}catch(e){console.warn(e)}};
-window.pushAllToFirebase=async()=>{
-  const total=window.DB.length;
-  let done=0,errors=0;
-  // Pokaż popup z postępem
-  const popup=document.createElement('div');
-  popup.id='syncPopup';
-  popup.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#1a3d1a;color:#fff;padding:20px 30px;border-radius:12px;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,.5);text-align:center;min-width:280px';
-  popup.innerHTML='<div style="font-size:18px;font-weight:800;margin-bottom:10px">☁️ Synchronizacja chmury</div><div id="syncMsg" style="font-size:14px;margin-bottom:12px">Przygotowuję...</div><div style="background:rgba(255,255,255,.2);border-radius:8px;height:12px;overflow:hidden"><div id="syncBar" style="background:#c8a83a;height:100%;width:0%;transition:width .3s"></div></div><div id="syncPct" style="font-size:11px;margin-top:8px;color:#c8a83a">0%</div>';
-  document.body.appendChild(popup);
-  const updateUI=()=>{const pct=Math.round(done/total*100);document.getElementById('syncMsg').textContent=`${done} / ${total} klientów`;document.getElementById('syncBar').style.width=pct+'%';document.getElementById('syncPct').textContent=pct+'%'+(errors?` (${errors} błędów)`:'')};
-  // Batchowy zapis - paczki po 400 równolegle
-  const BATCH=400;
-  for(let i=0;i<total;i+=BATCH){
-    const slice=window.DB.slice(i,i+BATCH);
-    await Promise.all(slice.map(k=>setDoc(doc(db,'klienci',k.id),k).then(()=>done++).catch(()=>{errors++;done++})));
-    updateUI();
-  }
-  document.getElementById('syncMsg').textContent='✅ Gotowe!';
-  setTimeout(()=>{const p=document.getElementById('syncPopup');if(p)p.remove()},3000);
-};
-window.batchSync=()=>{if(confirm(`Wgrać ${window.DB.length} klientów do chmury Firebase? (~30-60 sek)`))window.pushAllToFirebase()};
 </script>
 </body>
 </html>
