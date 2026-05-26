@@ -110,7 +110,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <body>
 
 <div class="header">
-  <div class="header-logo">AGRA <span>CRM</span> <span id="fbSync" style="font-size:10px;background:rgba(200,168,58,.2);color:var(--gold);padding:2px 7px;border-radius:10px;margin-left:6px">⏳</span></div>
+  <div class="header-logo">AGRA <span>CRM</span></div>
   <div class="header-stats">
     <div><b id="hKlientow">0</b>Klientów</div>
     <div><b id="hFollowup">0</b>Follow-up</div>
@@ -120,6 +120,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <!-- DASHBOARD -->
 <div class="screen active" id="screenDashboard">
+  <div class="card" style="border:2px solid var(--gold);margin-top:10px">
+    <div class="card-title" style="color:var(--gold)">🛡️ Backup / Synchronizacja</div>
+    <div style="font-size:12px;color:var(--tx2);margin-bottom:10px;line-height:1.4">Zapisz bazę na dysk i wgraj na innym urządzeniu. Łączy laptop ↔ telefon.</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="eksportujJSON()" style="flex:1;padding:14px 8px;border-radius:10px;border:none;background:var(--g2);color:#fff;font-size:14px;font-weight:700;cursor:pointer">💾 Zapisz<br>bazę</button>
+      <button onclick="document.getElementById('importJsonFile').click()" style="flex:1;padding:14px 8px;border-radius:10px;border:none;background:var(--gold);color:#1a1a14;font-size:14px;font-weight:700;cursor:pointer">📥 Wgraj<br>bazę</button>
+    </div>
+    <input type="file" id="importJsonFile" accept=".json,application/json" style="display:none" onchange="importujJSON(event)">
+  </div>
   <div style="padding:10px;padding-bottom:0">
     <div class="stats-row">
       <div class="stat-card" style="border-top-color:var(--g2)"><div class="stat-val" id="stKlientow">0</div><div class="stat-lbl">Klientów</div></div>
@@ -249,9 +258,33 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button class="raport-btn" style="background:var(--g1);color:#fff" onclick="generujRaport()">📊 Generuj raport tygodniowy</button>
     </div>
     <div class="card">
-      <div class="card-title">📅 Plan następnego tygodnia</div>
-      <p style="font-size:13px;color:var(--tx2);margin-bottom:12px">Follow-upy + klienci z wysokim potencjałem na przyszły tydzień.</p>
-      <button class="raport-btn" style="background:var(--gold);color:#1a1a14" onclick="generujPlan()">📅 Generuj plan tygodnia</button>
+      <div class="card-title">📅 Plan pracy</div>
+      <p style="font-size:13px;color:var(--tx2);margin-bottom:12px">Zadania, follow-upy i klienci z potencjałem za wybrany okres.</p>
+      <label class="form-lbl">Od:</label>
+      <input type="date" id="planOd" class="form-input" style="margin-bottom:8px">
+      <label class="form-lbl">Do:</label>
+      <input type="date" id="planDo" class="form-input" style="margin-bottom:8px">
+      <label class="form-lbl">Województwo (opcjonalnie):</label>
+      <select id="planWoj" class="form-input" style="margin-bottom:12px">
+        <option value="">— wszystkie województwa —</option>
+        <option value="dolnośląskie">dolnośląskie</option>
+        <option value="kujawsko-pomorskie">kujawsko-pomorskie</option>
+        <option value="lubelskie">lubelskie</option>
+        <option value="lubuskie">lubuskie</option>
+        <option value="łódzkie">łódzkie</option>
+        <option value="małopolskie">małopolskie</option>
+        <option value="mazowieckie">mazowieckie</option>
+        <option value="opolskie">opolskie</option>
+        <option value="podkarpackie">podkarpackie</option>
+        <option value="podlaskie">podlaskie</option>
+        <option value="pomorskie">pomorskie</option>
+        <option value="śląskie">śląskie</option>
+        <option value="świętokrzyskie">świętokrzyskie</option>
+        <option value="warmińsko-mazurskie">warmińsko-mazurskie</option>
+        <option value="wielkopolskie">wielkopolskie</option>
+        <option value="zachodniopomorskie">zachodniopomorskie</option>
+      </select>
+      <button class="raport-btn" style="background:var(--gold);color:#1a1a14" onclick="generujPlan()">📅 Generuj plan</button>
     </div>
     <div class="card">
       <div class="card-title">📤 Eksport bazy</div>
@@ -289,8 +322,8 @@ function esc(s){return(s||'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt
 function podgrupaIco(t){return(PODGRUPY.find(p=>p.key===t)||{ico:'👤'}).ico}
 function statusInfo(s){return STATUSY[s]||STATUSY.nowy}
 function save(){localStorage.setItem('agra_crm',JSON.stringify(DB));updateStats()}
-function saveKlient(k){save();if(window.saveToFirebase)window.saveToFirebase(k)}
-function deleteKlient(id){DB=DB.filter(x=>x.id!==id);save();if(window.deleteFromFirebase)window.deleteFromFirebase(id)}
+function saveKlient(k){save()}
+function deleteKlient(id){DB=DB.filter(x=>x.id!==id);save()}
 function toast(msg,dur=2500){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),dur)}
 
 function goScreen(name){
@@ -309,7 +342,9 @@ function goBack(){if(currentScreen==='detail'||currentScreen==='form')goScreen(p
 
 function updateStats(){
   const today=todayStr();
-  const fu=DB.filter(k=>k.followup===today).length;
+  // Stare follow-upy + zadania niezrobione na dziś lub przeterminowane
+  let fu=DB.filter(k=>k.followup===today).length;
+  DB.forEach(k=>(k.zadania||[]).forEach(z=>{if(!z.done&&z.data&&z.data<=today)fu++}));
   const akt=DB.filter(k=>k.status==='klient').length;
   const of=DB.filter(k=>k.status==='oferta').length;
   ['hKlientow','stKlientow'].forEach(id=>document.getElementById(id).textContent=DB.length);
@@ -323,11 +358,22 @@ function updateStats(){
 function renderDashboard(){
   updateStats();
   const today=todayStr();
+  // Stare follow-upy + nowe zadania na dziś/przeterminowane
   const fu=DB.filter(k=>k.followup===today);
+  const zadDzis=[];const zadOver=[];
+  DB.forEach(k=>(k.zadania||[]).forEach((z,zi)=>{
+    if(z.done)return;
+    if(z.data===today)zadDzis.push({k,z,zi});
+    else if(z.data&&z.data<today)zadOver.push({k,z,zi});
+  }));
   const fuSek=document.getElementById('followupSekcja');
-  if(fu.length){
+  if(fu.length||zadDzis.length||zadOver.length){
     fuSek.style.display='block';
-    document.getElementById('followupList').innerHTML=fu.map(k=>`<div class="followup-item" onclick="openKlient('${k.id}')"><div class="followup-nazwa">${podgrupaIco(k.typ)} ${esc(k.nazwa)}</div><div class="followup-meta">${esc(k.telefon||'')}${k.telefon&&k.miasto?' · ':''}${esc(k.miasto||'')}</div>${k.dzialanie?`<div class="followup-akcja">🎯 ${esc(k.dzialanie)}</div>`:''}</div>`).join('');
+    let h='';
+    if(zadOver.length)h+=`<div style="font-size:12px;font-weight:700;color:var(--red);padding:4px 0">⚠️ Przeterminowane (${zadOver.length})</div>`+zadOver.slice(0,5).map(({k,z})=>`<div class="followup-item" onclick="openKlient('${k.id}')" style="border-left-color:var(--red)"><div class="followup-nazwa">${podgrupaIco(k.typ)} ${esc(k.nazwa)}</div><div class="followup-meta">📅 ${z.data} · ${esc(k.miasto||'')}</div><div class="followup-akcja">🎯 ${esc(z.tytul)}</div></div>`).join('');
+    if(zadDzis.length)h+=`<div style="font-size:12px;font-weight:700;color:var(--orange);padding:4px 0">🔥 Dzisiaj (${zadDzis.length})</div>`+zadDzis.map(({k,z})=>`<div class="followup-item" onclick="openKlient('${k.id}')" style="border-left-color:var(--orange)"><div class="followup-nazwa">${podgrupaIco(k.typ)} ${esc(k.nazwa)}</div><div class="followup-meta">${esc(k.telefon||'')}${k.telefon&&k.miasto?' · ':''}${esc(k.miasto||'')}</div><div class="followup-akcja">🎯 ${esc(z.tytul)}</div></div>`).join('');
+    if(fu.length)h+=fu.map(k=>`<div class="followup-item" onclick="openKlient('${k.id}')"><div class="followup-nazwa">${podgrupaIco(k.typ)} ${esc(k.nazwa)}</div><div class="followup-meta">${esc(k.telefon||'')}${k.telefon&&k.miasto?' · ':''}${esc(k.miasto||'')}</div>${k.dzialanie?`<div class="followup-akcja">🎯 ${esc(k.dzialanie)}</div>`:''}</div>`).join('');
+    document.getElementById('followupList').innerHTML=h;
   }else fuSek.style.display='none';
   document.getElementById('podgrupy').innerHTML=PODGRUPY.map(p=>{
     const cnt=DB.filter(k=>k.typ===p.key).length;
@@ -375,14 +421,33 @@ function openKlient(id){
   let html=`<div class="card"><div class="sekcja-tytul">📋 Dane kontaktowe</div>${k.kontakt?`<div class="info-row"><span class="info-lbl">Osoba</span><span class="info-val">${esc(k.kontakt)}</span></div>`:''} ${k.telefon?`<div class="info-row"><span class="info-lbl">Telefon</span><span class="info-val"><a href="tel:${k.telefon}" style="color:var(--g2);font-weight:600">${esc(k.telefon)}</a></span></div>`:''} ${k.email?`<div class="info-row"><span class="info-lbl">Email</span><span class="info-val"><a href="mailto:${k.email}" style="color:var(--g2)">${esc(k.email)}</a></span></div>`:''} ${k.adres?`<div class="info-row"><span class="info-lbl">Adres</span><span class="info-val">${esc(k.adres)}</span></div>`:''}<div class="info-row"><span class="info-lbl">Status</span><span class="info-val"><span class="status-badge" style="background:${st.bg};color:${st.kolor}">${st.label}</span></span></div></div>`;
   if((k.produkty||[]).length)html+=`<div class="card"><div class="sekcja-tytul">🌿 Produkty AGRA</div><div class="produkty-badges">${(k.produkty||[]).map(p=>`<span class="produkt-badge">${esc(p)}</span>`).join('')}</div></div>`;
   html+=`<div class="card"><div class="sekcja-tytul">📅 CRM</div>${k.ostatni?`<div class="info-row"><span class="info-lbl">Ostatni</span><span class="info-val">${k.ostatni}</span></div>`:''} ${k.followup?`<div class="info-row"><span class="info-lbl">Follow-up</span><span class="info-val" style="color:var(--red);font-weight:600">${k.followup}</span></div>`:''} ${k.dzialanie?`<div class="info-row"><span class="info-lbl">Działanie</span><span class="info-val">${esc(k.dzialanie)}</span></div>`:''}</div>`;
-  html+=`<div class="card"><div class="sekcja-tytul">🎤 Notatka po wizycie</div><button class="mic-btn" id="micBtn" onclick="toggleVoice()"><span>🎤</span><span id="micTxt">Nagraj notatkę</span></button><div class="recording-indicator" id="recIndicator">⏺️ Nagrywam...</div><div class="voice-transcript" id="voiceTranscript"></div><textarea class="notatka-pole" id="notatkaPole" placeholder="Lub wpisz ręcznie..."></textarea><button class="zapisz-btn" onclick="zapiszNotatke('${id}')">💾 Zapisz notatkę</button></div>`;
-  if((k.notatki||[]).length)html+=`<div class="card"><div class="sekcja-tytul">💬 Historia</div>${(k.notatki||[]).map(n=>`<div class="notatka-wpis"><div class="notatka-txt">${esc(n.txt)}</div><div class="notatka-meta">${n.autor||'Darek'} · ${n.data}</div></div>`).join('')}</div>`;
+  // Zadania z datami (multi-followup)
+  const zadania=(k.zadania||[]).slice().sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  html+=`<div class="card"><div class="sekcja-tytul">📅 Zadania <button onclick="dodajZadanie('${id}')" style="float:right;background:var(--g2);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer">+ Dodaj</button></div>`;
+  if(zadania.length){
+    const today=todayStr();
+    html+=zadania.map((z,i)=>{const overdue=z.data&&z.data<today&&!z.done;const isToday=z.data===today;const bg=z.done?'#f0f0f0':overdue?'#ffe5e5':isToday?'#fff3cd':'#fff';const border=z.done?'#999':overdue?'var(--red)':isToday?'var(--orange)':'var(--g2)';return`<div style="background:${bg};border-left:4px solid ${border};padding:10px;margin-bottom:6px;border-radius:6px;display:flex;align-items:center;gap:8px"><input type="checkbox" ${z.done?'checked':''} onchange="toggleZadanie('${id}',${i})" style="width:20px;height:20px;cursor:pointer"><div style="flex:1;${z.done?'opacity:.5;text-decoration:line-through':''}"><div style="font-size:13px;font-weight:600">${esc(z.tytul||z.txt||'')}</div><div style="font-size:11px;color:var(--tx3);margin-top:2px">📅 ${z.data||'bez daty'}${overdue?' ⚠️ PRZETERMINOWANE':isToday?' 🔥 DZISIAJ':''}</div></div><button onclick="usunZadanie('${id}',${i})" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">🗑️</button></div>`}).join('');
+  } else html+='<div style="color:var(--tx3);font-size:12px;padding:8px 0">Brak zadań. Dodaj pierwsze!</div>';
+  html+='</div>';
+  
+  // Historia kontaktów - chronologicznie
+  const kontakty=(k.kontakty||[]).slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  html+=`<div class="card"><div class="sekcja-tytul">📞 Historia kontaktów <button onclick="dodajKontakt('${id}')" style="float:right;background:var(--g2);color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:700;cursor:pointer">+ Dodaj</button></div>`;
+  if(kontakty.length){
+    const ICO={telefon:'📞',mail:'✉️',wizyta:'🚗',spotkanie:'💬',oferta:'📋',inne:'📌'};
+    html+=kontakty.map((c,i)=>`<div style="border-left:3px solid var(--g2);padding:8px 10px;margin-bottom:6px;background:#fafafa;border-radius:0 6px 6px 0"><div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600;font-size:13px">${ICO[c.typ]||'📌'} ${esc(c.typ||'kontakt')} · ${c.data||''}</div><button onclick="usunKontakt('${id}',${i})" style="background:none;border:none;color:var(--red);font-size:14px;cursor:pointer">🗑️</button></div>${c.txt?`<div style="font-size:12px;color:var(--tx2);margin-top:4px">${esc(c.txt)}</div>`:''}</div>`).join('');
+  } else html+='<div style="color:var(--tx3);font-size:12px;padding:8px 0">Brak zarejestrowanych kontaktów.</div>';
+  html+='</div>';
+  
+  // Notatki - z edycją
+  html+=`<div class="card"><div class="sekcja-tytul">🎤 Nowa notatka</div><button class="mic-btn" id="micBtn" onclick="toggleVoice()"><span>🎤</span><span id="micTxt">Nagraj notatkę</span></button><div class="recording-indicator" id="recIndicator">⏺️ Nagrywam...</div><div class="voice-transcript" id="voiceTranscript"></div><textarea class="notatka-pole" id="notatkaPole" placeholder="Lub wpisz ręcznie..."></textarea><div style="display:flex;gap:8px;align-items:center;margin-top:8px"><label style="font-size:12px;color:var(--tx2);font-weight:600">📅 Data:</label><input type="date" id="notatkaData" value="${todayStr()}" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:8px;font-size:14px;background:#fafafa"></div><button class="zapisz-btn" onclick="zapiszNotatke('${id}')">💾 Zapisz notatkę</button></div>`;
+  if((k.notatki||[]).length)html+=`<div class="card"><div class="sekcja-tytul">💬 Historia notatek</div>${(k.notatki||[]).map((n,i)=>`<div class="notatka-wpis" id="not_${id}_${i}"><div class="notatka-txt" id="nottxt_${id}_${i}">${esc(n.txt)}</div><div class="notatka-meta">${n.autor||'Darek'} · ${n.data} <button onclick="edytujNotatke('${id}',${i})" style="margin-left:8px;background:none;border:none;color:var(--blue);cursor:pointer;font-size:11px">✏️ Edytuj</button> <button onclick="usunNotatke('${id}',${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:11px">🗑️ Usuń</button></div></div>`).join('')}</div>`;
   html+='<div style="height:20px"></div>';
   document.getElementById('detailBody').innerHTML=html;
   goScreen('detail');
 }
 
-function oznaczKontakt(id){const k=DB.find(x=>x.id===id);if(k){k.ostatni=todayStr();saveKlient(k);toast('📞 Odnotowano')}}
+function oznaczKontakt(id){const k=DB.find(x=>x.id===id);if(k){k.ostatni=todayStr();if(!k.kontakty)k.kontakty=[];k.kontakty.unshift({typ:'telefon',data:todayStr(),txt:'Telefon z CRM'});saveKlient(k);toast('📞 Odnotowano')}}
 function nawiguj(id){const k=DB.find(x=>x.id===id);if(k)window.open(`https://www.google.com/maps/search/${encodeURIComponent((k.adres||'')+' '+(k.miasto||'')+' Polska')}`)}
 function nowyKlient(){editingId=null;renderForm(null)}
 function edytujKlient(id){editingId=id;renderForm(DB.find(k=>k.id===id))}
@@ -440,10 +505,77 @@ function zapiszNotatke(id){
   if(!txt){toast('⚠️ Wpisz notatkę!');return}
   const k=DB.find(x=>x.id===id);if(!k)return;
   if(!k.notatki)k.notatki=[];
-  k.notatki.unshift({txt,data:todayStr(),autor:'Darek'});
-  k.ostatni=todayStr();saveKlient(k);
+  // Czytamy wybraną datę z pola (domyślnie dzisiejsza)
+  const dataPole=document.getElementById('notatkaData');
+  const dataNotatki=(dataPole&&dataPole.value)?dataPole.value:todayStr();
+  k.notatki.unshift({txt,data:dataNotatki,autor:'Darek'});
+  // Ostatni kontakt = data notatki (jeśli późniejsza niż obecna)
+  if(!k.ostatni||dataNotatki>k.ostatni)k.ostatni=dataNotatki;
+  saveKlient(k);
   document.getElementById('notatkaPole').value='';
   toast('✅ Notatka zapisana!');openKlient(id);
+}
+
+// === EDYCJA / USUWANIE NOTATEK ===
+function edytujNotatke(id,idx){
+  const k=DB.find(x=>x.id===id);if(!k||!k.notatki||!k.notatki[idx])return;
+  const nowa=prompt('Edytuj notatkę:',k.notatki[idx].txt);
+  if(nowa===null)return;
+  if(!nowa.trim()){toast('⚠️ Notatka nie może być pusta');return}
+  const dataNow=prompt('Data notatki (YYYY-MM-DD):',k.notatki[idx].data||todayStr());
+  if(dataNow===null)return;
+  k.notatki[idx].txt=nowa.trim();
+  if(dataNow.trim())k.notatki[idx].data=dataNow.trim();
+  k.notatki[idx].edited=todayStr();
+  saveKlient(k);toast('✅ Edytowano');openKlient(id);
+}
+function usunNotatke(id,idx){
+  if(!confirm('Usunąć tę notatkę?'))return;
+  const k=DB.find(x=>x.id===id);if(!k||!k.notatki)return;
+  k.notatki.splice(idx,1);saveKlient(k);toast('🗑️ Usunięto');openKlient(id);
+}
+
+// === ZADANIA Z DATAMI (wielokrotne follow-upy) ===
+function dodajZadanie(id){
+  const k=DB.find(x=>x.id===id);if(!k)return;
+  const tytul=prompt('Co zrobić? (np. Zadzwonić, Wysłać ofertę, Wizyta)');
+  if(!tytul||!tytul.trim())return;
+  const data=prompt('Kiedy? (YYYY-MM-DD, np. 2026-05-25)',todayStr());
+  if(!data)return;
+  if(!k.zadania)k.zadania=[];
+  k.zadania.push({tytul:tytul.trim(),data:data.trim(),done:false,created:Date.now()});
+  saveKlient(k);toast('✅ Dodano zadanie');openKlient(id);
+}
+function toggleZadanie(id,idx){
+  const k=DB.find(x=>x.id===id);if(!k||!k.zadania||!k.zadania[idx])return;
+  k.zadania[idx].done=!k.zadania[idx].done;
+  if(k.zadania[idx].done)k.zadania[idx].doneDate=todayStr();
+  saveKlient(k);openKlient(id);
+}
+function usunZadanie(id,idx){
+  if(!confirm('Usunąć to zadanie?'))return;
+  const k=DB.find(x=>x.id===id);if(!k||!k.zadania)return;
+  k.zadania.splice(idx,1);saveKlient(k);toast('🗑️ Usunięto');openKlient(id);
+}
+
+// === HISTORIA KONTAKTÓW (interakcje) ===
+function dodajKontakt(id){
+  const k=DB.find(x=>x.id===id);if(!k)return;
+  const typ=prompt('Typ kontaktu:\n📞 telefon\n✉️ mail\n🚗 wizyta\n💬 spotkanie\n📋 oferta\n📌 inne\n\n(wpisz: telefon / mail / wizyta / spotkanie / oferta / inne)','telefon');
+  if(!typ)return;
+  const t=typ.trim().toLowerCase();
+  if(!['telefon','mail','wizyta','spotkanie','oferta','inne'].includes(t)){toast('⚠️ Niepoprawny typ');return}
+  const data=prompt('Data (YYYY-MM-DD):',todayStr());
+  if(!data)return;
+  const txt=prompt('Notatka (opcjonalnie):','');
+  if(!k.kontakty)k.kontakty=[];
+  k.kontakty.unshift({typ:t,data:data.trim(),txt:(txt||'').trim()});
+  k.ostatni=data.trim();saveKlient(k);toast('✅ Dodano');openKlient(id);
+}
+function usunKontakt(id,idx){
+  if(!confirm('Usunąć ten kontakt?'))return;
+  const k=DB.find(x=>x.id===id);if(!k||!k.kontakty)return;
+  k.kontakty.splice(idx,1);saveKlient(k);toast('🗑️ Usunięto');openKlient(id);
 }
 
 function toggleVoice(){if(voiceActive)stopVoice();else startVoice()}
@@ -502,6 +634,13 @@ function initRaportDaty(){
   const od=document.getElementById('raportOd'),doo=document.getElementById('raportDo');
   if(od&&!od.value)od.value=fmt(mon);
   if(doo&&!doo.value)doo.value=fmt(sun);
+  // Plan: od dziś do końca następnego tygodnia
+  const planSun=new Date(today);
+  const daysToNextSun=dow===0?7:(7-dow)+7;
+  planSun.setDate(today.getDate()+daysToNextSun);
+  const pOd=document.getElementById('planOd'),pDo=document.getElementById('planDo');
+  if(pOd&&!pOd.value)pOd.value=fmt(today);
+  if(pDo&&!pDo.value)pDo.value=fmt(planSun);
 }
 
 function pobierzExcel(rows,filename){
@@ -519,47 +658,176 @@ function pobierzExcel(rows,filename){
 function generujRaport(){
   const od=document.getElementById('raportOd').value,doo=document.getElementById('raportDo').value;
   if(!od||!doo){toast('⚠️ Wybierz daty!');return}
-  const kl=DB.filter(k=>k.ostatni>=od&&k.ostatni<=doo);
-  const not=[];DB.forEach(k=>(k.notatki||[]).forEach(n=>{if(n.data>=od&&n.data<=doo)not.push({...n,klient:k.nazwa})}));
+  
+  // Klienci z aktywnością w okresie (ostatni kontakt LUB notatka LUB zarejestrowany kontakt LUB zadanie zrobione)
+  const aktywni=new Map();
+  DB.forEach(k=>{
+    let ma=false;
+    if(k.ostatni>=od&&k.ostatni<=doo)ma=true;
+    if((k.notatki||[]).some(n=>n.data>=od&&n.data<=doo))ma=true;
+    if((k.kontakty||[]).some(c=>c.data>=od&&c.data<=doo))ma=true;
+    if((k.zadania||[]).some(z=>z.done&&z.doneDate>=od&&z.doneDate<=doo))ma=true;
+    if(ma)aktywni.set(k.id,k);
+  });
+  const aktywniArr=Array.from(aktywni.values());
+  
+  // Zbierz wszystkie kontakty z okresu z nazwą klienta (do listy "ODWIEDZONE")
+  const kontaktyOkresu=[];
+  aktywniArr.forEach(k=>{
+    (k.kontakty||[]).forEach(c=>{if(c.data>=od&&c.data<=doo)kontaktyOkresu.push({...c,klient:k.nazwa,miasto:k.miasto,woj:k.woj})});
+  });
+  kontaktyOkresu.sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  
+  // Notatki z okresu
+  const not=[];DB.forEach(k=>(k.notatki||[]).forEach(n=>{if(n.data>=od&&n.data<=doo)not.push({...n,klient:k.nazwa,miasto:k.miasto})}));
+  not.sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  
+  // Zadania zrobione w okresie
+  const zadDone=[];DB.forEach(k=>(k.zadania||[]).forEach(z=>{if(z.done&&z.doneDate>=od&&z.doneDate<=doo)zadDone.push({...z,klient:k.nazwa,miasto:k.miasto})}));
+  zadDone.sort((a,b)=>(a.doneDate||'').localeCompare(b.doneDate||''));
+  
+  // Statystyki według typu kontaktu
+  const statTyp={telefon:0,mail:0,wizyta:0,spotkanie:0,oferta:0,inne:0};
+  kontaktyOkresu.forEach(c=>{if(statTyp[c.typ]!==undefined)statTyp[c.typ]++});
+  
   const rows=[
     ['AGRA POLSKA — RAPORT TYGODNIOWY'],
     [`Tydzień: ${od} – ${doo} | Handlowiec: Darek Radko`],[],
-    ['PODSUMOWANIE'],
-    ['Wizyty/Kontakty w tygodniu',kl.length],['Notatki z wizyt',not.length],
+    ['PODSUMOWANIE OKRESU'],
+    ['Klienci z aktywnością',aktywniArr.length],
+    ['Zarejestrowane kontakty',kontaktyOkresu.length],
+    ['  - Telefony 📞',statTyp.telefon],
+    ['  - Maile ✉️',statTyp.mail],
+    ['  - Wizyty 🚗',statTyp.wizyta],
+    ['  - Spotkania 💬',statTyp.spotkanie],
+    ['  - Oferty 📋',statTyp.oferta],
+    ['  - Inne 📌',statTyp.inne],
+    ['Zadania wykonane',zadDone.length],
+    ['Notatki z wizyt',not.length],
     ['Pipeline (oferty)',DB.filter(k=>k.status==='oferta').length],
     ['Aktywni klienci',DB.filter(k=>k.status==='klient').length],
     ['Łącznie w bazie',DB.length],[],
-    ['SZCZEGÓŁY WIZYT'],
-    ['Klient','Typ','Województwo','Ostatni kontakt','Status','Produkty','Notatka'],
-    ...kl.map(k=>[k.nazwa,k.typ,k.woj,k.ostatni,k.status,(k.produkty||[]).join(', '),(k.notatki||[]).slice(0,1).map(n=>n.txt).join('')]),
-    [],[`NOTATKI Z WIZYT (${not.length})`],
-    ['Klient','Data','Treść'],
-    ...not.map(n=>[n.klient,n.data,n.txt]),
-    [],[`Wygenerowano: ${todayStr()} | Dla: Dagmar Peterková`]
+    
+    [`ODWIEDZENI / SKONTAKTOWANI KLIENCI (${aktywniArr.length})`],
+    ['Klient','Miasto','Województwo','Typ klienta','Status','Ostatni kontakt','Telefon','Email'],
+    ...aktywniArr.map(k=>[k.nazwa,k.miasto||'',k.woj||'',k.typ||'',k.status||'',k.ostatni||'',k.telefon||'',k.email||'']),
+    [],
+    
+    [`HISTORIA KONTAKTÓW CHRONOLOGICZNIE (${kontaktyOkresu.length})`],
+    ['Data','Typ','Klient','Miasto','Województwo','Notatka'],
+    ...kontaktyOkresu.map(c=>[c.data,c.typ,c.klient,c.miasto||'',c.woj||'',c.txt||'']),
+    [],
+    
+    [`ZADANIA WYKONANE (${zadDone.length})`],
+    ['Data wykonania','Klient','Miasto','Zadanie','Termin'],
+    ...zadDone.map(z=>[z.doneDate,z.klient,z.miasto||'',z.tytul||'',z.data||'']),
+    [],
+    
+    [`NOTATKI Z WIZYT (${not.length})`],
+    ['Data','Klient','Miasto','Treść'],
+    ...not.map(n=>[n.data,n.klient,n.miasto||'',n.txt]),
+    [],
+    
+    ...(()=>{
+      // Wszystkie niewykonane zadania
+      const today=todayStr();
+      const overdue=[];const upcoming=[];
+      DB.forEach(k=>(k.zadania||[]).forEach(z=>{
+        if(z.done||!z.data)return;
+        const item={data:z.data,klient:k.nazwa,miasto:k.miasto||'',woj:k.woj||'',tytul:z.tytul||z.txt||'',telefon:k.telefon||''};
+        if(z.data<today)overdue.push(item);
+        else upcoming.push(item);
+      }));
+      overdue.sort((a,b)=>a.data.localeCompare(b.data));
+      upcoming.sort((a,b)=>a.data.localeCompare(b.data));
+      const out=[];
+      if(overdue.length){
+        out.push([`⚠️ PRZETERMINOWANE ZADANIA (${overdue.length})`]);
+        out.push(['Termin','Klient','Miasto','Województwo','Zadanie','Telefon']);
+        overdue.forEach(z=>out.push([z.data,z.klient,z.miasto,z.woj,z.tytul,z.telefon]));
+        out.push([]);
+      }
+      if(upcoming.length){
+        out.push([`📅 NADCHODZĄCE ZADANIA (${upcoming.length})`]);
+        out.push(['Termin','Klient','Miasto','Województwo','Zadanie','Telefon']);
+        upcoming.forEach(z=>out.push([z.data,z.klient,z.miasto,z.woj,z.tytul,z.telefon]));
+        out.push([]);
+      }
+      return out;
+    })(),
+    
+    [`Wygenerowano: ${todayStr()} | Dla: David Ryčl, Sales Manager`]
   ];
   pobierzExcel(rows,`Raport_AGRA_${od}_${doo}.xls`);toast('✅ Raport gotowy!');
 }
 
 function generujPlan(){
-  const today=new Date(),dow=today.getDay();
-  const mon=new Date(today);mon.setDate(today.getDate()+(dow===0?1:8-dow));
-  const sun=new Date(mon);sun.setDate(mon.getDate()+6);
-  const fmt=d=>d.toISOString().slice(0,10);
-  const od=fmt(mon),doo=fmt(sun);
-  const planFU=DB.filter(k=>k.followup>=od&&k.followup<=doo).sort((a,b)=>a.followup.localeCompare(b.followup));
-  const doKont=DB.filter(k=>k.potencjal==='wysoki'&&k.status!=='klient'&&(!k.followup||k.followup<od)).slice(0,10);
+  // Czytaj daty z pól (jak w raporcie)
+  let od=document.getElementById('planOd').value;
+  let doo=document.getElementById('planDo').value;
+  
+  // Domyślne wartości: od dziś do końca następnego tygodnia
+  if(!od||!doo){
+    const today=new Date(),dow=today.getDay();
+    const fmt=d=>d.toISOString().slice(0,10);
+    const sun=new Date(today);
+    const daysToNextSun=dow===0?7:(7-dow)+7;
+    sun.setDate(today.getDate()+daysToNextSun);
+    if(!od)od=fmt(today);
+    if(!doo)doo=fmt(sun);
+    // Podstaw do pól żeby user widział
+    document.getElementById('planOd').value=od;
+    document.getElementById('planDo').value=doo;
+  }
+  
+  if(od>doo){toast('⚠️ Data "od" musi być wcześniejsza niż "do"');return}
+  
+  const wojF=(document.getElementById('planWoj').value||'').trim().toLowerCase();
+  const today=todayStr();
+  
+  // Filtr po województwie
+  const matchWoj=k=>!wojF||(k.woj||'').toLowerCase().includes(wojF);
+  
+  // Follow-upy w okresie
+  const planFU=DB.filter(k=>k.followup&&k.followup>=od&&k.followup<=doo&&matchWoj(k)).sort((a,b)=>a.followup.localeCompare(b.followup));
+  
+  // Zadania w okresie
+  const planZad=[];
+  DB.forEach(k=>{if(!matchWoj(k))return;(k.zadania||[]).forEach(z=>{if(!z.done&&z.data&&z.data>=od&&z.data<=doo)planZad.push({k,z})})});
+  planZad.sort((a,b)=>(a.z.data||'').localeCompare(b.z.data||''));
+  
+  // PRZETERMINOWANE zadania (zawsze pokazuj - sprzed dziś, niezależnie od okresu)
+  const planOverdue=[];
+  DB.forEach(k=>{if(!matchWoj(k))return;(k.zadania||[]).forEach(z=>{if(!z.done&&z.data&&z.data<today)planOverdue.push({k,z})})});
+  planOverdue.sort((a,b)=>(a.z.data||'').localeCompare(b.z.data||''));
+  
+  const doKont=DB.filter(k=>k.potencjal==='wysoki'&&k.status!=='klient'&&(!k.followup||k.followup<od)&&matchWoj(k)).slice(0,15);
+  
+  const tytulZakres=wojF?` | Województwo: ${wojF}`:'';
+  
   const rows=[
     ['AGRA POLSKA — PLAN PRACY'],
-    [`Tydzień: ${od} – ${doo} | Handlowiec: Darek Radko`],[],
-    [`ZAPLANOWANE FOLLOW-UPY (${planFU.length})`],
+    [`Okres: ${od} – ${doo} | Handlowiec: Darek Radko${tytulZakres}`],[],
+    ...(planOverdue.length?[
+      [`⚠️ PRZETERMINOWANE ZADANIA (${planOverdue.length}) — DO ZAMKNIĘCIA`],
+      ['Lp.','Termin','Klient','Miasto','Województwo','Telefon','Zadanie','Typ klienta','Potencjał'],
+      ...planOverdue.map((p,i)=>[i+1,p.z.data,p.k.nazwa,p.k.miasto||'',p.k.woj||'',p.k.telefon||'',p.z.tytul||'',p.k.typ||'',p.k.potencjal||'']),
+      []
+    ]:[]),
+    [`📅 ZAPLANOWANE ZADANIA (${planZad.length})`],
+    ['Lp.','Data','Klient','Miasto','Województwo','Telefon','Email','Zadanie','Typ klienta','Potencjał'],
+    ...planZad.map((p,i)=>[i+1,p.z.data,p.k.nazwa,p.k.miasto||'',p.k.woj||'',p.k.telefon||'',p.k.email||'',p.z.tytul||'',p.k.typ||'',p.k.potencjal||'']),
+    [],
+    [`STARE FOLLOW-UPY (${planFU.length})`],
     ['Lp.','Data','Klient','Miasto','Województwo','Telefon','Email','Kontakt','Typ','Działanie','Produkty'],
-    ...planFU.map((k,i)=>[i+1,k.followup,k.nazwa,k.miasto,k.woj,k.telefon||'',k.email||'',k.kontakt||'',k.typ,k.dzialanie||'',(k.produkty||[]).join(', ')]),
+    ...planFU.map((k,i)=>[i+1,k.followup,k.nazwa,k.miasto||'',k.woj||'',k.telefon||'',k.email||'',k.kontakt||'',k.typ||'',k.dzialanie||'',(k.produkty||[]).join(', ')]),
     [],[`DO KONTAKTU — WYSOKI POTENCJAŁ (${doKont.length})`],
     ['Lp.','Klient','Miasto','Województwo','Telefon','Email','Status','Produkty'],
-    ...doKont.map((k,i)=>[i+1,k.nazwa,k.miasto,k.woj,k.telefon||'',k.email||'',k.status,(k.produkty||[]).join(', ')]),
-    [],[`Wygenerowano: ${todayStr()} | Follow-upy: ${planFU.length} | Do kontaktu: ${doKont.length}`]
+    ...doKont.map((k,i)=>[i+1,k.nazwa,k.miasto||'',k.woj||'',k.telefon||'',k.email||'',k.status,(k.produkty||[]).join(', ')]),
+    [],[`Wygenerowano: ${todayStr()} | Przeterminowane: ${planOverdue.length} | Zaplanowane: ${planZad.length} | Follow-upy: ${planFU.length} | Do kontaktu: ${doKont.length}`]
   ];
-  pobierzExcel(rows,`Plan_AGRA_${od}_${doo}.xls`);toast('✅ Plan gotowy!');
+  const fileSuffix=wojF?`_${wojF}`:'';
+  pobierzExcel(rows,`Plan_AGRA_${od}_${doo}${fileSuffix}.xls`);toast('✅ Plan gotowy!');
 }
 
 function eksportujExcel(){
@@ -573,9 +841,45 @@ function eksportujCSV(){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'}));a.download=`AGRA_CRM_${todayStr()}.csv`;a.click();toast(`✅ CSV: ${DB.length}`);
 }
 
+// === BACKUP JSON / IMPORT JSON ===
+function eksportujJSON(){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(DB)],{type:'application/json'}));
+  a.download=`AGRA_BACKUP_${todayStr()}.json`;
+  a.click();
+  toast(`💾 Backup: ${DB.length} klientów`);
+}
+
+function importujJSON(ev){
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const dane=JSON.parse(e.target.result);
+      if(!Array.isArray(dane)){toast('❌ Plik nie zawiera bazy klientów');return}
+      const ile=dane.length;
+      if(!confirm(`Wgrać ${ile} klientów? \nObecna baza (${DB.length}) zostanie ZASTĄPIONA. \n\nKontynuować?`))return;
+      // Dodaj brakujące pola
+      dane.forEach(k=>{
+        if(!k.zadania)k.zadania=[];
+        if(!k.kontakty)k.kontakty=[];
+        if(!k.notatki)k.notatki=[];
+        if(!k.id)k.id=genId();
+      });
+      DB=dane;
+      save();
+      toast(`✅ Wgrano ${ile} klientów`);
+      renderDashboard();renderKlienci();
+      ev.target.value='';
+    }catch(err){
+      toast('❌ Błąd: '+err.message);
+    }
+  };
+  r.readAsText(f);
+}
+
 // ═══ INIT ═════════════════════════════════════════════════════════════════════
 window.onload=()=>{
-  setInterval(()=>{const el=document.getElementById('fbSync');if(el&&window.firebaseReady)el.textContent='☁️ sync'},2000);
   if(!DB.length){
     DB=[
       {id:genId(),created:Date.now(),nazwa:'Winnica Rytwiany',kontakt:'Stefan Dunin',telefon:'+48 604 123 456',email:'villa.sichow@winnica.pl',miasto:'Rytwiany',woj:'świętokrzyskie',typ:'winnica',status:'kontakt',potencjal:'wysoki',ostatni:'2026-05-08',followup:todayStr(),dzialanie:'Wysłać ofertę CHEVRI Cu-Combi',produkty:['CHEVRI Cu-Combi','StabilureN'],notatki:[]},
@@ -599,33 +903,13 @@ function importCSV(file){
       const vals=lines[i].split(';').map(v=>v.trim().replace(/^"|"$/g,''));
       if(!vals[0])continue;
       const obj={};headers.forEach((h,j)=>obj[h]=vals[j]||'');
-      const k={id:genId(),created:Date.now(),nazwa:obj.nazwa||'',kontakt:obj.kontakt||'',telefon:obj.telefon||'',email:obj.email||'',adres:obj.adres||'',miasto:obj.miasto||'',woj:obj.wojewodztwo||obj.woj||'',typ:obj.typ||'inny',status:obj.status||'nowy',potencjal:obj.potencjal||'niski',produkty:(obj.produkty||'').split(/[|,]/).map(p=>p.trim()).filter(Boolean),notatka:obj.notatka||'',notatki:[]};
+      const k={id:genId(),created:Date.now(),nazwa:obj.nazwa||'',kontakt:obj.kontakt||'',telefon:obj.telefon||'',email:obj.email||'',adres:obj.adres||'',miasto:obj.miasto||'',woj:obj.wojewodztwo||obj.woj||'',typ:obj.typ||'inny',status:obj.status||'nowy',potencjal:obj.potencjal||'niski',produkty:(obj.produkty||'').split(/[|,]/).map(p=>p.trim()).filter(Boolean),notatka:obj.notatka||'',notatki:[],zadania:[],kontakty:[]};
       if(k.nazwa){DB.push(k);dodano++}
     }
-    save();renderDashboard();toast(`✅ Zaimportowano ${dodano}`);
+    save();renderDashboard();renderKlienci();toast(`✅ Zaimportowano ${dodano} klientów`);
   };
   reader.readAsText(file,'utf-8');
 }
-</script>
-
-<script type="module">
-import{initializeApp}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import{getFirestore,collection,doc,setDoc,deleteDoc,onSnapshot,query,orderBy}from'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-const app=initializeApp({apiKey:"AIzaSyC8itr8G7wy21cARjbkfGOs3S3--PF8RoW4",authDomain:"agra-crm.firebaseapp.com",projectId:"agra-crm",storageBucket:"agra-crm.firebasestorage.app",messagingSenderId:"487492337747",appId:"1:487492337747:web:92c37a62e6c928de3bc6a6"});
-const db=getFirestore(app);
-window.firebaseReady=false;
-onSnapshot(query(collection(db,'klienci'),orderBy('nazwa')),snap=>{
-  if(snap.empty&&!window.firebaseReady){if(window.DB&&window.DB.length>0)window.pushAllToFirebase&&window.pushAllToFirebase();window.firebaseReady=true;return}
-  window.DB=snap.docs.map(d=>({...d.data(),id:d.id}));
-  window.firebaseReady=true;
-  localStorage.setItem('agra_crm',JSON.stringify(window.DB));
-  if(typeof updateStats==='function')updateStats();
-  if(typeof renderDashboard==='function')renderDashboard();
-  if(typeof renderKlienci==='function'&&window.currentScreen==='klienci')renderKlienci();
-});
-window.saveToFirebase=async k=>{try{await setDoc(doc(db,'klienci',k.id),k)}catch(e){console.warn(e)}};
-window.deleteFromFirebase=async id=>{try{await deleteDoc(doc(db,'klienci',id))}catch(e){console.warn(e)}};
-window.pushAllToFirebase=async()=>{for(const k of window.DB)await setDoc(doc(db,'klienci',k.id),k)};
 </script>
 </body>
 </html>
