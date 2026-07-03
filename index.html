@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="AGRA CRM">
 <title>AGRA CRM</title>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js" defer></script>
 <style>
 :root{--g1:#1a3d1a;--g2:#2d6a2d;--g4:#e8f5e9;--gold:#c8a83a;--bg:#f4f1ea;--surf:#fff;--tx:#1a1a14;--tx2:#5a5a4a;--tx3:#9a9a8a;--red:#c0392b;--blue:#1565c0;--orange:#e65100;--r:12px;--sh:0 2px 12px rgba(0,0,0,.09)}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -296,9 +297,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- WIZYTÓWKA -->
+<div class="screen" id="screenWizytowka">
+  <div style="background:var(--g1);padding:12px 16px;padding-top:8px">
+    <div style="color:#fff;font-size:17px;font-weight:800">📇 Skanuj wizytówkę</div>
+  </div>
+  <div class="form-screen" id="wizytowkaBody"></div>
+</div>
+
 <div class="bottom-nav">
   <button class="nav-btn active" id="navDashboard" onclick="goScreen('dashboard')"><span class="nav-btn-ico">📊</span><span class="nav-btn-lbl">Dashboard</span></button>
   <button class="nav-btn" id="navKlienci" onclick="goScreen('klienci')"><span class="nav-btn-ico">👥</span><span class="nav-btn-lbl">Klienci</span></button>
+  <button class="nav-btn" id="navWizytowka" onclick="goScreen('wizytowka')"><span class="nav-btn-ico">📇</span><span class="nav-btn-lbl">Wizytówka</span></button>
   <button class="nav-btn" id="navTrasa" onclick="goScreen('trasa')"><span class="nav-btn-ico">🗺️</span><span class="nav-btn-lbl">Trasa</span></button>
   <button class="nav-btn" id="navRaporty" onclick="goScreen('raporty')"><span class="nav-btn-ico">📋</span><span class="nav-btn-lbl">Raporty</span></button>
 </div>
@@ -337,6 +347,7 @@ function goScreen(name){
   if(name==='klienci')renderKlienci();
   if(name==='trasa')renderTrasa();
   if(name==='raporty')initRaportDaty();
+  if(name==='wizytowka')renderWizytowkaScreen();
 }
 function goBack(){if(currentScreen==='detail'||currentScreen==='form')goScreen(prevScreen==='detail'?'klienci':prevScreen)}
 
@@ -876,6 +887,124 @@ function importujJSON(ev){
     }
   };
   r.readAsText(f);
+}
+
+// ═══ WIZYTÓWKA — SKAN + OCR + FORMULARZ ═══════════════════════════════════════
+let wizytowkaImg=null,wizytowkaParsed=null;
+
+function renderWizytowkaScreen(){
+  wizytowkaImg=null;wizytowkaParsed=null;
+  document.getElementById('wizytowkaBody').innerHTML=`
+    <div class="form-sekcja" style="text-align:center">
+      <div class="form-sekcja-tytul">📷 Zrób zdjęcie wizytówki</div>
+      <p style="font-size:12px;color:var(--tx2);margin-bottom:12px;line-height:1.4">Rozpoznam dane automatycznie (imię, telefon, email, adres) — potem poprawisz co trzeba i zapiszesz do bazy.</p>
+      <input type="file" accept="image/*" capture="environment" id="wizytowkaInput" style="display:none" onchange="wizytowkaWczytaj(event)">
+      <button class="form-save-btn" onclick="document.getElementById('wizytowkaInput').click()">📷 Zrób / wybierz zdjęcie</button>
+    </div>`;
+}
+
+function wizytowkaWczytaj(ev){
+  const f=ev.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    wizytowkaImg=e.target.result;
+    document.getElementById('wizytowkaBody').innerHTML=`
+      <div class="form-sekcja" style="text-align:center">
+        <img src="${wizytowkaImg}" style="max-width:100%;border-radius:10px;margin-bottom:10px">
+        <button class="form-save-btn" id="wizytowkaOcrBtn" onclick="wizytowkaRozpoznaj()">🔎 Rozpoznaj dane</button>
+        <button onclick="renderWizytowkaScreen()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;background:#fff;color:var(--tx2);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px">↺ Inne zdjęcie</button>
+      </div>`;
+  };
+  r.readAsDataURL(f);
+}
+
+async function wizytowkaRozpoznaj(){
+  const btn=document.getElementById('wizytowkaOcrBtn');
+  if(btn){btn.textContent='⏳ Rozpoznaję... (do 30 sek.)';btn.disabled=true}
+  try{
+    if(typeof Tesseract==='undefined'){toast('⚠️ Brak modułu OCR — sprawdź połączenie z internetem (potrzebne przy pierwszym użyciu)');if(btn){btn.textContent='🔎 Rozpoznaj dane';btn.disabled=false}return}
+    const {data:{text}}=await Tesseract.recognize(wizytowkaImg,'pol+eng');
+    wizytowkaParsed=parseWizytowkaText(text);
+    renderWizytowkaForm(wizytowkaParsed);
+  }catch(err){
+    toast('❌ Błąd OCR: '+err.message);
+    if(btn){btn.textContent='🔎 Rozpoznaj dane';btn.disabled=false}
+  }
+}
+
+function parseWizytowkaText(text){
+  const linie=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  let pozostale=linie.slice();
+  const emailMatch=text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  const email=emailMatch?emailMatch[0]:'';
+  if(email)pozostale=pozostale.filter(l=>!l.includes(email));
+  const wwwMatch=text.match(/(https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.(pl|com|eu|net|org)(\/[^\s]*)?/i);
+  const www=(wwwMatch&&!wwwMatch[0].includes('@'))?wwwMatch[0]:'';
+  if(www)pozostale=pozostale.filter(l=>!l.includes(www));
+  const phoneRegex=/(\+?48[\s-]?)?(\d[\s-]?){9}/g;
+  let telefony=[],m;
+  while((m=phoneRegex.exec(text))){const digits=m[0].replace(/\D/g,'');if(digits.length>=9)telefony.push(m[0].trim())}
+  telefony=[...new Set(telefony)];
+  const telefon=telefony[0]||'';
+  if(telefony.length)pozostale=pozostale.filter(l=>!telefony.some(t=>l.includes(t)));
+  const kodMatch=text.match(/\d{2}-\d{3}\s+[A-ZŁŚŻŹĆŃÓĄĘ][a-ząćęłńóśźż]+/);
+  let miasto='';
+  if(kodMatch){miasto=kodMatch[0].replace(/\d{2}-\d{3}\s+/,'');pozostale=pozostale.filter(l=>!l.includes(kodMatch[0]))}
+  const adresLine=pozostale.find(l=>/^(ul\.|ul |al\.|pl\.)/i.test(l)||/\d+[a-zA-Z]?$/.test(l));
+  let adres='';
+  if(adresLine){adres=adresLine;pozostale=pozostale.filter(l=>l!==adresLine)}
+  const nazwa=pozostale[0]||'';
+  const kontakt=pozostale.find(l=>l!==nazwa&&/^[A-ZŁŚŻŹĆŃÓĄĘ][a-ząćęłńóśźż]+\s+[A-ZŁŚŻŹĆŃÓĄĘ][a-ząćęłńóśźż]+$/.test(l))||'';
+  return{nazwa,kontakt,telefon,email,www,adres,miasto,raw:text.trim()};
+}
+
+function renderWizytowkaForm(p){
+  document.getElementById('wizytowkaBody').innerHTML=`
+    <div class="form-sekcja"><div class="form-sekcja-tytul">✅ Sprawdź i popraw dane</div>
+    <div class="form-pole"><label class="form-lbl">Nazwa *</label><input class="form-input" id="fwNazwa" value="${esc(p.nazwa)}"></div>
+    <div class="form-pole"><label class="form-lbl">Osoba kontaktowa</label><input class="form-input" id="fwKontakt" value="${esc(p.kontakt)}"></div>
+    <div class="form-pole"><label class="form-lbl">Telefon</label><input class="form-input" id="fwTelefon" type="tel" value="${esc(p.telefon)}"></div>
+    <div class="form-pole"><label class="form-lbl">Email</label><input class="form-input" id="fwEmail" type="email" value="${esc(p.email)}"></div>
+    <div class="form-pole"><label class="form-lbl">Adres</label><input class="form-input" id="fwAdres" value="${esc(p.adres)}"></div>
+    <div class="form-pole"><label class="form-lbl">Miasto</label><input class="form-input" id="fwMiasto" value="${esc(p.miasto)}"></div>
+    <div class="form-pole"><label class="form-lbl">Województwo</label><div class="form-chips" id="fwWoj">${WOJEWODZTWA.map(w=>`<div class="form-chip" onclick="selectChip('fwWoj','${w}',this)">${w}</div>`).join('')}</div></div>
+    </div>
+    <div class="form-sekcja"><div class="form-sekcja-tytul">🏷️ Klasyfikacja</div>
+    <div class="form-pole"><label class="form-lbl">Podgrupa</label><div class="form-chips" id="fwTyp">${PODGRUPY.map(pg=>`<div class="form-chip" data-val="${pg.key}" onclick="selectChip('fwTyp','${pg.key}',this)">${pg.ico} ${pg.label}</div>`).join('')}</div></div>
+    <div class="form-pole"><label class="form-lbl">Potencjał</label><div class="form-chips" id="fwPotencjal"><div class="form-chip active" data-val="sredni" onclick="selectChip('fwPotencjal','sredni',this)">🟡 Średni</div><div class="form-chip" data-val="wysoki" onclick="selectChip('fwPotencjal','wysoki',this)">🔴 Wysoki</div><div class="form-chip" data-val="niski" onclick="selectChip('fwPotencjal','niski',this)">⚪ Niski</div></div></div>
+    </div>
+    <div class="form-sekcja"><div class="form-sekcja-tytul">📝 Rozpoznany tekst (do weryfikacji)</div>
+    <textarea class="form-input" id="fwNotatka" rows="4" style="font-size:12px">${esc(p.raw)}</textarea>
+    </div>
+    <button class="form-save-btn" onclick="zapiszWizytowke()">💾 Zapisz klienta</button>
+    <button onclick="renderWizytowkaScreen()" style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;background:#fff;color:var(--tx2);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:20px">↺ Skanuj kolejną</button>`;
+}
+
+function normTel(t){return(t||'').replace(/\D/g,'').slice(-9)}
+function znajdzDuplikat(telefon,email){
+  const tp=normTel(telefon),em=(email||'').trim().toLowerCase();
+  return DB.find(k=>(tp&&normTel(k.telefon)===tp)||(em&&(k.email||'').trim().toLowerCase()===em));
+}
+
+function zapiszWizytowke(){
+  const nazwa=document.getElementById('fwNazwa').value.trim();
+  if(!nazwa){toast('⚠️ Podaj nazwę!');return}
+  const telefon=document.getElementById('fwTelefon').value.trim();
+  const email=document.getElementById('fwEmail').value.trim();
+  const dane={kontakt:document.getElementById('fwKontakt').value.trim(),telefon,email,adres:document.getElementById('fwAdres').value.trim(),miasto:document.getElementById('fwMiasto').value.trim(),woj:getChipVal('fwWoj'),typ:getChipVal('fwTyp')||'inny',potencjal:getChipVal('fwPotencjal')||'sredni'};
+  const ocrTxt=document.getElementById('fwNotatka').value.trim();
+  const dup=znajdzDuplikat(telefon,email);
+  if(dup){
+    if(confirm(`Znaleziono podobnego klienta: "${dup.nazwa}"\n\nOK = zaktualizuj jego dane\nAnuluj = dodaj jako NOWEGO klienta`)){
+      Object.keys(dane).forEach(key=>{if(dane[key])dup[key]=dane[key]});
+      if(nazwa)dup.nazwa=nazwa;
+      if(!dup.notatki)dup.notatki=[];
+      dup.notatki.unshift({txt:'📇 Zaktualizowano ze skanu wizytówki'+(ocrTxt?': '+ocrTxt:''),data:todayStr(),autor:'Darek'});
+      saveKlient(dup);toast('✅ Zaktualizowano klienta');openKlient(dup.id);return;
+    }
+  }
+  const nowy={id:genId(),created:Date.now(),nazwa,...dane,status:'nowy',produkty:[],notatki:[{txt:'📇 Dodano ze skanu wizytówki'+(ocrTxt?': '+ocrTxt:''),data:todayStr(),autor:'Darek'}],zadania:[],kontakty:[]};
+  DB.unshift(nowy);saveKlient(nowy);toast('✅ Dodano nowego klienta!');openKlient(nowy.id);
 }
 
 // ═══ INIT ═════════════════════════════════════════════════════════════════════
