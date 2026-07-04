@@ -973,30 +973,81 @@ async function wizytowkaRozpoznaj(){
 }
 
 function parseWizytowkaText(text){
-  const linie=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  let linie=text.split('\n').map(l=>l.trim()).filter(Boolean);
+  // usuń linie-śmieci (bez sensownych liter) - artefakty OCR typu "» :"
+  linie=linie.filter(l=>{
+    const litery=l.replace(/[^A-Za-zÀ-žŁŚŻŹĆŃÓĄĘłśżźćńóąę]/g,'');
+    return litery.length>=2;
+  });
   let pozostale=linie.slice();
+
   const emailMatch=text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
   const email=emailMatch?emailMatch[0]:'';
   if(email)pozostale=pozostale.filter(l=>!l.includes(email));
+
   const wwwMatch=text.match(/(https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.(pl|com|eu|net|org)(\/[^\s]*)?/i);
   const www=(wwwMatch&&!wwwMatch[0].includes('@'))?wwwMatch[0]:'';
   if(www)pozostale=pozostale.filter(l=>!l.includes(www));
+
+  // telefony - preferuj numer opisany jako "kom." (komórkowy) nad "tel." (stacjonarny)
   const phoneRegex=/(\+?48[\s-]?)?(\d[\s-]?){9}/g;
-  let telefony=[],m;
-  while((m=phoneRegex.exec(text))){const digits=m[0].replace(/\D/g,'');if(digits.length>=9)telefony.push(m[0].trim())}
-  telefony=[...new Set(telefony)];
-  const telefon=telefony[0]||'';
-  if(telefony.length)pozostale=pozostale.filter(l=>!telefony.some(t=>l.includes(t)));
-  const kodMatch=text.match(/\d{2}-\d{3}\s+[A-ZŁŚŻŹĆŃÓĄĘ][a-ząćęłńóśźż]+/);
+  let telefonKom='',telefonInny='';
+  pozostale.forEach(l=>{
+    const matches=l.match(phoneRegex)||[];
+    matches.forEach(mm=>{
+      const digits=mm.replace(/\D/g,'');
+      if(digits.length<9)return;
+      if(/kom/i.test(l)){if(!telefonKom)telefonKom=mm.trim()}
+      else{if(!telefonInny)telefonInny=mm.trim()}
+    });
+  });
+  const telefon=telefonKom||telefonInny;
+  pozostale=pozostale.filter(l=>{
+    const matches=l.match(phoneRegex)||[];
+    return !matches.some(mm=>mm.replace(/\D/g,'').length>=9);
+  });
+
+  // kod pocztowy + reszta linii jako miasto
   let miasto='';
-  if(kodMatch){miasto=kodMatch[0].replace(/\d{2}-\d{3}\s+/,'');pozostale=pozostale.filter(l=>!l.includes(kodMatch[0]))}
-  const adresLine=pozostale.find(l=>/^(ul\.|ul |al\.|pl\.)/i.test(l)||/\d+[a-zA-Z]?$/.test(l));
+  const kodIdx=pozostale.findIndex(l=>/\d{2}-\d{3}/.test(l));
+  if(kodIdx>-1){
+    miasto=pozostale[kodIdx].replace(/^.*?\d{2}-\d{3}\s*/,'').trim();
+    pozostale.splice(kodIdx,1);
+  }
+
+  // adres - linia z "ul./al./pl." lub kończąca się numerem domu
+  const adresIdx=pozostale.findIndex(l=>/^(ul\.|ul |al\.|pl\.)/i.test(l)||/\d+[a-zA-Z]?\s*$/.test(l));
   let adres='';
-  if(adresLine){adres=adresLine;pozostale=pozostale.filter(l=>l!==adresLine)}
-  const nazwa=pozostale[0]||'';
-  const kontakt=pozostale.find(l=>l!==nazwa&&/^[A-ZŁŚŻŹĆŃÓĄĘ][a-ząćęłńóśźż]+\s+[A-ZŁŚŻŹĆŃÓĄĘ][a-ząćęłńóśźż]+$/.test(l))||'';
+  if(adresIdx>-1){adres=pozostale[adresIdx];pozostale.splice(adresIdx,1)}
+
+  // osoba kontaktowa - szukaj wzorca "Imię Nazwisko" GDZIEKOLWIEK w linii (nie tylko całej linii)
+  const nameRegex=/[A-ZŁŚŻŹĆŃÓĄĘ][a-ząćęłńóśźż]+\s+[A-ZŁŚŻŹĆŃÓĄĘ][a-ząćęłńóśźż]+/;
+  let kontakt='',kontaktIdx=-1;
+  for(let i=0;i<pozostale.length;i++){
+    const mm=pozostale[i].match(nameRegex);
+    if(mm){kontakt=mm[0];kontaktIdx=i;break}
+  }
+  if(kontaktIdx>-1){
+    const reszta=pozostale[kontaktIdx].replace(kontakt,'').trim();
+    if(reszta.length>2)pozostale[kontaktIdx]=reszta; else pozostale.splice(kontaktIdx,1);
+  }
+
+  // nazwa firmy - preferuj linię z przewagą WIELKICH LITER (typowy nagłówek firmy)
+  const isUpperish=l=>{
+    const litery=l.replace(/[^A-Za-zŁŚŻŹĆŃÓĄĘłśżźćńóąę]/g,'');
+    if(litery.length<3)return false;
+    const wielkie=litery.replace(/[^A-ZŁŚŻŹĆŃÓĄĘ]/g,'');
+    return wielkie.length/litery.length>0.6;
+  };
+  let nazwa='';
+  const nazwaIdx=pozostale.findIndex(isUpperish);
+  if(nazwaIdx>-1)nazwa=pozostale[nazwaIdx];
+  else if(pozostale.length)nazwa=pozostale[0];
+  else if(kontakt)nazwa=kontakt;
+
   return{nazwa,kontakt,telefon,email,www,adres,miasto,raw:text.trim()};
 }
+
 
 function renderWizytowkaForm(p){
   document.getElementById('wizytowkaBody').innerHTML=`
