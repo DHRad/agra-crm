@@ -1,6 +1,7 @@
+<!-- v2-wizytowka -->
 <!DOCTYPE html>
 <html lang="pl">
-<head> 
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#1a3d1a">
@@ -918,12 +919,51 @@ function wizytowkaWczytaj(ev){
   r.readAsDataURL(f);
 }
 
+function preprocessDoOcr(dataUrl){
+  return new Promise((resolve)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxDim=1800;
+      let w=img.width,h=img.height;
+      if(w>maxDim||h>maxDim){const s=maxDim/Math.max(w,h);w=Math.round(w*s);h=Math.round(h*s)}
+      const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+      const ctx=canvas.getContext('2d');
+      ctx.drawImage(img,0,0,w,h);
+      const imgData=ctx.getImageData(0,0,w,h);
+      const d=imgData.data;
+      const n=w*h;
+      const gray=new Uint8ClampedArray(n);
+      for(let i=0,j=0;i<d.length;i+=4,j++)gray[j]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+      const hist=new Array(256).fill(0);
+      for(let j=0;j<n;j++)hist[gray[j]]++;
+      let sum=0;for(let t=0;t<256;t++)sum+=t*hist[t];
+      let sumB=0,wB=0,wF=0,maxVar=-1,threshold=127;
+      for(let t=0;t<256;t++){
+        wB+=hist[t];if(wB===0)continue;
+        wF=n-wB;if(wF===0)break;
+        sumB+=t*hist[t];
+        const mB=sumB/wB,mF=(sum-sumB)/wF;
+        const varB=wB*wF*(mB-mF)*(mB-mF);
+        if(varB>maxVar){maxVar=varB;threshold=t}
+      }
+      for(let i=0,j=0;i<d.length;i+=4,j++){
+        const v=gray[j]>threshold?255:0;
+        d[i]=d[i+1]=d[i+2]=v;
+      }
+      ctx.putImageData(imgData,0,0);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.src=dataUrl;
+  });
+}
+
 async function wizytowkaRozpoznaj(){
   const btn=document.getElementById('wizytowkaOcrBtn');
   if(btn){btn.textContent='⏳ Rozpoznaję... (do 30 sek.)';btn.disabled=true}
   try{
     if(typeof Tesseract==='undefined'){toast('⚠️ Brak modułu OCR — sprawdź połączenie z internetem (potrzebne przy pierwszym użyciu)');if(btn){btn.textContent='🔎 Rozpoznaj dane';btn.disabled=false}return}
-    const {data:{text}}=await Tesseract.recognize(wizytowkaImg,'pol+eng');
+    const processed=await preprocessDoOcr(wizytowkaImg);
+    const {data:{text}}=await Tesseract.recognize(processed,'pol+eng');
     wizytowkaParsed=parseWizytowkaText(text);
     renderWizytowkaForm(wizytowkaParsed);
   }catch(err){
