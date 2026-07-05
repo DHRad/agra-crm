@@ -965,23 +965,31 @@ function preprocessDoOcr(dataUrl){
       const imgData=ctx.getImageData(0,0,w,h);
       const d=imgData.data;
       const n=w*h;
-      const gray=new Uint8ClampedArray(n);
+      const gray=new Float32Array(n);
       for(let i=0,j=0;i<d.length;i+=4,j++)gray[j]=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-      const hist=new Array(256).fill(0);
-      for(let j=0;j<n;j++)hist[gray[j]]++;
-      let sum=0;for(let t=0;t<256;t++)sum+=t*hist[t];
-      let sumB=0,wB=0,wF=0,maxVar=-1,threshold=127;
-      for(let t=0;t<256;t++){
-        wB+=hist[t];if(wB===0)continue;
-        wF=n-wB;if(wF===0)break;
-        sumB+=t*hist[t];
-        const mB=sumB/wB,mF=(sum-sumB)/wF;
-        const varB=wB*wF*(mB-mF)*(mB-mF);
-        if(varB>maxVar){maxVar=varB;threshold=t}
+
+      // próg adaptacyjny lokalny: średnia w oknie block x block minus stała (odporne na nierówne/duże tło)
+      const block=Math.max(25,Math.round(Math.min(w,h)/20));
+      const bias=12;
+      const bw=Math.ceil(w/block),bh=Math.ceil(h/block);
+      const blockMean=new Float32Array(bw*bh);
+      for(let by=0;by<bh;by++){
+        for(let bx=0;bx<bw;bx++){
+          let s=0,c=0;
+          const y0=by*block,y1=Math.min(h,y0+block),x0=bx*block,x1=Math.min(w,x0+block);
+          for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){s+=gray[y*w+x];c++}
+          blockMean[by*bw+bx]=c?s/c:255;
+        }
       }
-      for(let i=0,j=0;i<d.length;i+=4,j++){
-        const v=gray[j]>threshold?255:0;
-        d[i]=d[i+1]=d[i+2]=v;
+      for(let y=0;y<h;y++){
+        const by=Math.min(bh-1,Math.floor(y/block));
+        for(let x=0;x<w;x++){
+          const bx=Math.min(bw-1,Math.floor(x/block));
+          const localMean=blockMean[by*bw+bx];
+          const idx=(y*w+x)*4;
+          const v=gray[y*w+x]>(localMean-bias)?255:0;
+          d[idx]=d[idx+1]=d[idx+2]=v;
+        }
       }
       ctx.putImageData(imgData,0,0);
       resolve(canvas.toDataURL('image/png'));
