@@ -985,7 +985,7 @@ function parseWizytowkaText(text){
   const email=emailMatch?emailMatch[0]:'';
   if(email)pozostale=pozostale.filter(l=>!l.includes(email));
 
-  const wwwMatch=text.match(/(https?:\/\/)?(www\.)?[a-zA-Z0-9-]+\.(pl|com|eu|net|org)(\/[^\s]*)?/i);
+  const wwwMatch=text.match(/(https?:\/\/)?(www\.)?([a-zA-Z0-9-]+\.)+(pl|com|eu|net|org)(\/[^\s]*)?/i);
   const www=(wwwMatch&&!wwwMatch[0].includes('@'))?wwwMatch[0]:'';
   if(www)pozostale=pozostale.filter(l=>!l.includes(www));
 
@@ -997,7 +997,7 @@ function parseWizytowkaText(text){
     matches.forEach(mm=>{
       const digits=mm.replace(/\D/g,'');
       if(digits.length<9)return;
-      if(/kom/i.test(l)){if(!telefonKom)telefonKom=mm.trim()}
+      if(/kom|mobile|mob\.|gsm/i.test(l)){if(!telefonKom)telefonKom=mm.trim()}
       else{if(!telefonInny)telefonInny=mm.trim()}
     });
   });
@@ -1020,28 +1020,32 @@ function parseWizytowkaText(text){
   let adres='';
   if(adresIdx>-1){adres=pozostale[adresIdx];pozostale.splice(adresIdx,1)}
 
-  // osoba kontaktowa - szukaj wzorca "Imię Nazwisko" GDZIEKOLWIEK w linii (nie tylko całej linii)
+  // osoba kontaktowa - szukaj wzorca "Imię Nazwisko" GDZIEKOLWIEK w linii (nie tylko całej linii), pomijając linie z nazwami firmowymi
   const nameRegex=/[A-ZŁŚŻŹĆŃÓĄĘ][a-ząćęłńóśźż]+\s+[A-ZŁŚŻŹĆŃÓĄĘ][a-ząćęłńóśźż]+/;
+  const slowaFirmowe=/\b(grupa|zakłady|zakład|centrum|firma|przedsiębiorstwo|handel|hurt|hurtownia|sklep|spółka|gospodarstwo|ogrodnicze|rolnicze|agro|import|export|departament|dział|biuro)\b/i;
   let kontakt='',kontaktIdx=-1;
   for(let i=0;i<pozostale.length;i++){
     const mm=pozostale[i].match(nameRegex);
-    if(mm){kontakt=mm[0];kontaktIdx=i;break}
+    if(mm&&!slowaFirmowe.test(mm[0])){kontakt=mm[0];kontaktIdx=i;break}
   }
   if(kontaktIdx>-1){
     const reszta=pozostale[kontaktIdx].replace(kontakt,'').trim();
     if(reszta.length>2)pozostale[kontaktIdx]=reszta; else pozostale.splice(kontaktIdx,1);
   }
 
-  // nazwa firmy - preferuj linię z przewagą WIELKICH LITER (typowy nagłówek firmy)
+  // nazwa firmy - priorytet: 1) pełna nazwa prawna (S.A., Sp. z o.o.), 2) linia z przewagą WIELKICH LITER, 3) pierwsza pozostała linia
   const isUpperish=l=>{
     const litery=l.replace(/[^A-Za-zŁŚŻŹĆŃÓĄĘłśżźćńóąę]/g,'');
     if(litery.length<3)return false;
     const wielkie=litery.replace(/[^A-ZŁŚŻŹĆŃÓĄĘ]/g,'');
     return wielkie.length/litery.length>0.6;
   };
+  const maNazwePrawna=l=>/S\.\s?A\.|Sp\.\s?z\s?o\.?\s?o\.?|Sp\.\s?J\.|spółka/i.test(l);
   let nazwa='';
+  const prawnaIdx=pozostale.findIndex(maNazwePrawna);
   const nazwaIdx=pozostale.findIndex(isUpperish);
-  if(nazwaIdx>-1)nazwa=pozostale[nazwaIdx];
+  if(prawnaIdx>-1)nazwa=pozostale[prawnaIdx];
+  else if(nazwaIdx>-1)nazwa=pozostale[nazwaIdx];
   else if(pozostale.length)nazwa=pozostale[0];
   else if(kontakt)nazwa=kontakt;
 
