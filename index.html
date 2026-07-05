@@ -1043,18 +1043,21 @@ function parseWizytowkaText(text){
   });
   let pozostale=linie.slice();
 
-  const emailMatch=text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-  const email=emailMatch?emailMatch[0]:'';
-  if(email)pozostale=pozostale.filter(l=>!l.includes(email));
+  const emailMatches=[...text.matchAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)].map(m=>m[0]);
+  const genericEmail=/^(sekretariat|biuro|info|office|kontakt|recepcja|admin|sales|sprzedaz|marketing)@/i;
+  const emailOsobisty=emailMatches.find(e=>!genericEmail.test(e));
+  const email=emailOsobisty||emailMatches[0]||'';
+  if(email)pozostale=pozostale.filter(l=>!emailMatches.some(e=>l.includes(e)));
 
   const wwwMatch=text.match(/(https?:\/\/)?(www\.)?([a-zA-Z0-9-]+\.)+(pl|com|eu|net|org)(\/[^\s]*)?/i);
   const www=(wwwMatch&&!wwwMatch[0].includes('@'))?wwwMatch[0]:'';
   if(www)pozostale=pozostale.filter(l=>!l.includes(www));
 
-  // telefony - preferuj numer opisany jako "kom." (komórkowy) nad "tel." (stacjonarny)
+  // telefony - preferuj numer opisany jako "kom." (komórkowy) nad "tel." (stacjonarny); pomijaj linie z NIP (ten sam format co telefon!)
   const phoneRegex=/(\+?48[\s-]?)?(\d[\s-]?){9}/g;
   let telefonKom='',telefonInny='';
   pozostale.forEach(l=>{
+    if(/\bnip\b/i.test(l))return;
     const matches=l.match(phoneRegex)||[];
     matches.forEach(mm=>{
       const digits=mm.replace(/\D/g,'');
@@ -1065,6 +1068,7 @@ function parseWizytowkaText(text){
   });
   const telefon=telefonKom||telefonInny;
   pozostale=pozostale.filter(l=>{
+    if(/\bnip\b/i.test(l))return true;
     const matches=l.match(phoneRegex)||[];
     return !matches.some(mm=>mm.replace(/\D/g,'').length>=9);
   });
@@ -1084,11 +1088,13 @@ function parseWizytowkaText(text){
   let adres='';
   if(adresIdx>-1){adres=pozostale[adresIdx];pozostale.splice(adresIdx,1)}
 
-  // osoba kontaktowa - szukaj wzorca "Imię Nazwisko" GDZIEKOLWIEK w linii (nie tylko całej linii), pomijając linie z nazwami firmowymi
+  // osoba kontaktowa - szukaj wzorca "Imię Nazwisko" GDZIEKOLWIEK w linii, pomijając linie z nazwami firmowymi lub pełną nazwą prawną (np. "Grażyna i Jan Kowalski Sp. z o.o." - to założyciele w nazwie firmy, nie kontakt)
   const nameRegex=/[A-ZŁŚŻŹĆŃÓĄĘ][a-ząćęłńóśźż]+\s+[A-ZŁŚŻŹĆŃÓĄĘ][a-ząćęłńóśźż]+/;
   const slowaFirmowe=/\b(grupa|zakłady|zakład|centrum|firma|przedsiębiorstwo|handel|hurt|hurtownia|sklep|spółka|gospodarstwo|ogrodnicze|rolnicze|agro|import|export|departament|dział|biuro)\b/i;
+  const maNazwePrawna=l=>/S\.\s?A\.|Sp\.\s?z\s?o\.?\s?o\.?|Sp\.\s?J\.|spółka/i.test(l);
   let kontakt='',kontaktIdx=-1;
   for(let i=0;i<pozostale.length;i++){
+    if(maNazwePrawna(pozostale[i]))continue;
     const mm=pozostale[i].match(nameRegex);
     if(mm&&!slowaFirmowe.test(mm[0])){kontakt=mm[0];kontaktIdx=i;break}
   }
@@ -1104,10 +1110,9 @@ function parseWizytowkaText(text){
     const wielkie=litery.replace(/[^A-ZŁŚŻŹĆŃÓĄĘ]/g,'');
     return wielkie.length/litery.length>0.6;
   };
-  const maNazwePrawna=l=>/S\.\s?A\.|Sp\.\s?z\s?o\.?\s?o\.?|Sp\.\s?J\.|spółka/i.test(l);
-  let nazwa='';
-  const prawnaIdx=pozostale.findIndex(maNazwePrawna);
   const nazwaIdx=pozostale.findIndex(isUpperish);
+  const prawnaIdx=pozostale.findIndex(maNazwePrawna);
+  let nazwa='';
   if(prawnaIdx>-1)nazwa=pozostale[prawnaIdx];
   else if(nazwaIdx>-1)nazwa=pozostale[nazwaIdx];
   else if(pozostale.length)nazwa=pozostale[0];
