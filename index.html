@@ -289,6 +289,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button class="raport-btn" style="background:var(--gold);color:#1a1a14" onclick="generujPlan()">📅 Generuj plan</button>
     </div>
     <div class="card">
+      <div class="card-title">📧 Emailing wg podgrup</div>
+      <p style="font-size:13px;color:var(--tx2);margin-bottom:12px">Wybierz jedną lub więcej podgrup — wyeksportuję listę klientów z emailem, gotową do mailingu.</p>
+      <div class="form-chips" id="mailingPodgrupy" style="margin-bottom:10px">${PODGRUPY.map(pg=>`<div class="form-chip" data-val="${pg.key}" onclick="toggleMailingChip(this)">${pg.ico} ${pg.label}</div>`).join('')}</div>
+      <div id="mailingLiczba" style="font-size:13px;color:var(--tx2);margin-bottom:10px">Zaznacz podgrupy, aby zobaczyć liczbę kontaktów.</div>
+      <button class="raport-btn" style="background:var(--g1);color:#fff" onclick="eksportujMailing()">📧 Eksportuj listę do mailingu (CSV)</button>
+    </div>
+    <div class="card">
       <div class="card-title">📤 Eksport bazy</div>
       <div style="display:flex;gap:8px">
         <button onclick="eksportujExcel()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--g2);color:#fff;font-size:14px;font-weight:700;cursor:pointer">📊 Excel</button>
@@ -853,6 +860,32 @@ function eksportujCSV(){
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'}));a.download=`AGRA_CRM_${todayStr()}.csv`;a.click();toast(`✅ CSV: ${DB.length}`);
 }
 
+// === EMAILING WG PODGRUP ===
+let mailingWybrane=[];
+function toggleMailingChip(el){
+  const val=el.dataset.val;
+  if(mailingWybrane.includes(val)){mailingWybrane=mailingWybrane.filter(v=>v!==val);el.classList.remove('active')}
+  else{mailingWybrane.push(val);el.classList.add('active')}
+  aktualizujLiczbeMailing();
+}
+function aktualizujLiczbeMailing(){
+  const el=document.getElementById('mailingLiczba');
+  if(!mailingWybrane.length){el.textContent='Zaznacz podgrupy, aby zobaczyć liczbę kontaktów.';return}
+  const pasujacy=DB.filter(k=>mailingWybrane.includes(k.typ)&&(k.email||'').trim());
+  const wszyscy=DB.filter(k=>mailingWybrane.includes(k.typ));
+  el.innerHTML=`📧 <b>${pasujacy.length}</b> kontaktów z emailem (z ${wszyscy.length} w wybranych podgrupach)`;
+}
+function eksportujMailing(){
+  if(!mailingWybrane.length){toast('⚠️ Zaznacz przynajmniej jedną podgrupę');return}
+  const grupa=DB.filter(k=>mailingWybrane.includes(k.typ)&&(k.email||'').trim());
+  if(!grupa.length){toast('⚠️ Brak kontaktów z emailem w wybranych podgrupach');return}
+  const h=['Nazwa','Kontakt','Email','Telefon','Miasto','Wojewodztwo','Status'];
+  const lines=[h.join(';'),...grupa.map(k=>[k.nazwa,k.kontakt||'',k.email||'',k.telefon||'',k.miasto||'',k.woj||'',k.status||''].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(';'))];
+  const nazwyPlik=mailingWybrane.join('-');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\uFEFF'+lines.join('\n')],{type:'text/csv;charset=utf-8'}));a.download=`mailing_${nazwyPlik}_${todayStr()}.csv`;a.click();
+  toast(`✅ Wyeksportowano ${grupa.length} kontaktów`);
+}
+
 // === BACKUP JSON / IMPORT JSON ===
 function eksportujJSON(){
   const a=document.createElement('a');
@@ -972,6 +1005,27 @@ async function wizytowkaRozpoznaj(){
   }
 }
 
+function kodDoWojewodztwa(kod2){
+  const n=parseInt(kod2,10);
+  if(isNaN(n))return '';
+  if(n<=9)return 'mazowieckie';
+  if(n<=14)return 'warmińsko-mazurskie';
+  if(n<=19)return 'podlaskie';
+  if(n<=24)return 'lubelskie';
+  if(n<=29)return 'świętokrzyskie';
+  if(n<=34)return 'małopolskie';
+  if(n<=39)return 'podkarpackie';
+  if(n<=44)return 'śląskie';
+  if(n<=49)return 'opolskie';
+  if(n<=59)return 'dolnośląskie';
+  if(n<=64)return 'wielkopolskie';
+  if(n<=69)return 'lubuskie';
+  if(n<=79)return 'zachodniopomorskie';
+  if(n<=84)return 'pomorskie';
+  if(n<=89)return 'kujawsko-pomorskie';
+  return 'łódzkie';
+}
+
 function parseWizytowkaText(text){
   let linie=text.split('\n').map(l=>l.trim()).filter(Boolean);
   // usuń linie-śmieci (bez sensownych liter) - artefakty OCR typu "» :"
@@ -1008,9 +1062,11 @@ function parseWizytowkaText(text){
   });
 
   // kod pocztowy + reszta linii jako miasto
-  let miasto='';
+  let miasto='',wojewodztwo='';
   const kodIdx=pozostale.findIndex(l=>/\d{2}-\d{3}/.test(l));
   if(kodIdx>-1){
+    const kodMatch=pozostale[kodIdx].match(/(\d{2})-\d{3}/);
+    if(kodMatch)wojewodztwo=kodDoWojewodztwa(kodMatch[1]);
     miasto=pozostale[kodIdx].replace(/^.*?\d{2}-\d{3}\s*/,'').trim();
     pozostale.splice(kodIdx,1);
   }
@@ -1049,7 +1105,7 @@ function parseWizytowkaText(text){
   else if(pozostale.length)nazwa=pozostale[0];
   else if(kontakt)nazwa=kontakt;
 
-  return{nazwa,kontakt,telefon,email,www,adres,miasto,raw:text.trim()};
+  return{nazwa,kontakt,telefon,telefonKom,telefonStacj:telefonInny,email,www,adres,miasto,wojewodztwo,raw:text.trim()};
 }
 
 
@@ -1058,11 +1114,13 @@ function renderWizytowkaForm(p){
     <div class="form-sekcja"><div class="form-sekcja-tytul">✅ Sprawdź i popraw dane</div>
     <div class="form-pole"><label class="form-lbl">Nazwa *</label><input class="form-input" id="fwNazwa" value="${esc(p.nazwa)}"></div>
     <div class="form-pole"><label class="form-lbl">Osoba kontaktowa</label><input class="form-input" id="fwKontakt" value="${esc(p.kontakt)}"></div>
-    <div class="form-pole"><label class="form-lbl">Telefon</label><input class="form-input" id="fwTelefon" type="tel" value="${esc(p.telefon)}"></div>
+    <div class="form-pole"><label class="form-lbl">Telefon</label><input class="form-input" id="fwTelefon" type="tel" value="${esc(p.telefon)}">
+    ${p.telefonKom&&p.telefonStacj?`<div style="font-size:12px;color:var(--tx2);margin-top:6px">📱 Komórka: <b>${esc(p.telefonKom)}</b> (wybrana) &nbsp;·&nbsp; ☎️ Stacjonarny: <b>${esc(p.telefonStacj)}</b> <span style="color:var(--g2);text-decoration:underline;cursor:pointer" onclick="document.getElementById('fwTelefon').value='${esc(p.telefonStacj)}'">użyj tego</span></div>`:''}
+    </div>
     <div class="form-pole"><label class="form-lbl">Email</label><input class="form-input" id="fwEmail" type="email" value="${esc(p.email)}"></div>
     <div class="form-pole"><label class="form-lbl">Adres</label><input class="form-input" id="fwAdres" value="${esc(p.adres)}"></div>
     <div class="form-pole"><label class="form-lbl">Miasto</label><input class="form-input" id="fwMiasto" value="${esc(p.miasto)}"></div>
-    <div class="form-pole"><label class="form-lbl">Województwo</label><div class="form-chips" id="fwWoj">${WOJEWODZTWA.map(w=>`<div class="form-chip" onclick="selectChip('fwWoj','${w}',this)">${w}</div>`).join('')}</div></div>
+    <div class="form-pole"><label class="form-lbl">Województwo</label><div class="form-chips" id="fwWoj">${WOJEWODZTWA.map(w=>`<div class="form-chip ${w===p.wojewodztwo?'active':''}" data-val="${w}" onclick="selectChip('fwWoj','${w}',this)">${w}</div>`).join('')}</div></div>
     </div>
     <div class="form-sekcja"><div class="form-sekcja-tytul">🏷️ Klasyfikacja</div>
     <div class="form-pole"><label class="form-lbl">Podgrupa</label><div class="form-chips" id="fwTyp">${PODGRUPY.map(pg=>`<div class="form-chip" data-val="${pg.key}" onclick="selectChip('fwTyp','${pg.key}',this)">${pg.ico} ${pg.label}</div>`).join('')}</div></div>
